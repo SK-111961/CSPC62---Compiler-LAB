@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "y.tab.h"
 
 // Symbol Table Structure
 struct SymbolEntry {
@@ -61,15 +62,15 @@ BRACKET   [(){}\[\]]
 %%
 
 {COMMENT}   ;  // Ignore comments
+{OPERATOR}  { printf("OPERATOR: %s\n", yytext); }
 {KEYWORD}   { printf("KEYWORD: %s\n", yytext); }
 {IDENT}     { 
                printf("IDENT: %s\n", yytext); 
                add_to_symbol_table(yytext, "unknown", "global", "unknown"); 
-             }
+            }
 {INTEGER}   { printf("INTEGER: %s\n", yytext); }
 {DECIMAL}   { printf("DECIMAL: %s\n", yytext); }
 {STRING}    { printf("STRING: %s\n", yytext); }
-{OPERATOR}  { printf("OPERATOR: %s\n", yytext); }
 {PUNCT}     { printf("PUNCT: %s\n", yytext); }
 {BRACKET}   { printf("BRACKET: %s\n", yytext); }
 [ \t\n]     ;  // Ignore whitespace

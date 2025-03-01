@@ -63,6 +63,7 @@ void print_parse_tree(const char *node, int level) {
 
 // Tokens
 %token IDENT NUMBER
+%token IF_SK ELSE_SK WHILE_SK RETURN_SK PRINT_SK INT_SK FLOAT_SK VOID_SK
 
 // Precedence and Associativity
 %left '+' '-'
@@ -136,23 +137,23 @@ Assignment: IDENT '=' Expression ';' {
     print_parse_tree("Assignment", 6);
 };
 
-IfStmt: 'if_SK' '(' Expression ')' Block ElseStmt {
+IfStmt: IF_SK '(' Expression ')' Block ElseStmt {
     print_parse_tree("IfStmt", 6);
 };
 
-ElseStmt: 'else_SK' Block {
+ElseStmt: ELSE_SK Block {
     print_parse_tree("ElseStmt", 7);
 } | ;
 
-WhileStmt: 'while_SK' '(' Expression ')' Block {
+WhileStmt: WHILE_SK '(' Expression ')' Block {
     print_parse_tree("WhileStmt", 6);
 };
 
-ReturnStmt: 'return_SK' Expression ';' {
+ReturnStmt: RETURN_SK Expression ';' {
     print_parse_tree("ReturnStmt", 6);
 };
 
-PrintStmt: 'print_SK' '(' Expression ')' ';' {
+PrintStmt: PRINT_SK '(' Expression ')' ';' {
     print_parse_tree("PrintStmt", 6);
 };
 
@@ -206,11 +207,11 @@ MulOp: '*' {
     print_parse_tree("MulOp (/)", 10);
 };
 
-Type: 'int_SK' {
+Type: INT_SK {
     print_parse_tree("Type (int_SK)", 11);
-} | 'float_SK' {
+} | FLOAT_SK {
     print_parse_tree("Type (float_SK)", 11);
-} | 'void_SK' {
+} | VOID_SK {
     print_parse_tree("Type (void_SK)", 11);
 };
 
