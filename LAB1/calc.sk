@@ -1,0 +1,12 @@
+int_SK 135result = 0;
+float_SK 135pi = 3.14;
+
+loop_SK (135i = 0; 135i < 10; 135i++) {
+    135result = 135result + 135i * 135pi;
+}
+
+if_SK (135result > 100) {
+    print("Result is large");
+} else_SK {
+    print("Result is small");
+}
