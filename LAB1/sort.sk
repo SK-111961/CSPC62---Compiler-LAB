@@ -1,0 +1,33 @@
+// Bubble Sort Program
+void_SK 135bubble_sort(int_SK 135arr[], int_SK 135size) {
+    for_SK (int_SK 135i = 0; 135i < 135size - 1; 135i++) {
+        for_SK (int_SK 135j = 0; 135j < 135size - 135i - 1; 135j++) {
+            if_SK (135arr[135j] > 135arr[135j + 1]) {
+                // Swap elements
+                int_SK 135temp = 135arr[135j];
+                135arr[135j] = 135arr[135j + 1];
+                135arr[135j + 1] = 135temp;
+            }
+        }
+    }
+}
+
+int_SK main_SK() {
+    int_SK 135arr[] = {64, 34, 25, 12, 22, 11, 90};
+    int_SK 135size = 7;
+
+    print_SK("Original array: ");
+    for_SK (int_SK 135i = 0; 135i < 135size; 135i++) {
+        print_SK(135arr[135i]);
+    }
+
+    // Sort the array
+    135bubble_sort(135arr, 135size);
+
+    print_SK("Sorted array: ");
+    for_SK (int_SK 135i = 0; 135i < 135size; 135i++) {
+        print_SK(135arr[135i]);
+    }
+
+    return_SK 0;
+}

@@ -1,0 +1,40 @@
+// Program demonstrating arrays, functions, switch cases, if-else, and loops
+int_SK 135sum(int_SK 135arr[], int_SK 135size) {
+    int_SK 135total = 0;
+    for_SK (int_SK 135i = 0; 135i < 135size; 135i++) {
+        135total += 135arr[135i];
+    }
+    return_SK 135total;
+}
+
+int_SK main_SK() {
+    int_SK 135arr[] = {1, 2, 3, 4, 5};
+    int_SK 135size = 5;
+
+    // Calculate sum of array elements
+    int_SK 135result = 135sum(135arr, 135size);
+    print_SK("Sum of array elements: ");
+    print_SK(135result);
+
+    // Switch case example
+    int_SK 135choice = 2;
+    switch_SK (135choice) {
+        case_SK 1:
+            print_SK("You chose option 1");
+            break_SK;
+        case_SK 2:
+            print_SK("You chose option 2");
+            break_SK;
+        default_SK:
+            print_SK("Invalid choice");
+    }
+
+    // If-else example
+    if_SK (135result > 10) {
+        print_SK("Sum is greater than 10");
+    } else_SK {
+        print_SK("Sum is less than or equal to 10");
+    }
+
+    return_SK 0;
+}

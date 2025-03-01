@@ -1,0 +1,43 @@
+// Linear Search and Binary Search Program
+int_SK 135linear_search(int_SK 135arr[], int_SK 135size, int_SK 135key) {
+    for_SK (int_SK 135i = 0; 135i < 135size; 135i++) {
+        if_SK (135arr[135i] == 135key) {
+            return_SK 135i;  // Return the index if key is found
+        }
+    }
+    return_SK -1;  // Return -1 if key is not found
+}
+
+int_SK 135binary_search(int_SK 135arr[], int_SK 135size, int_SK 135key) {
+    int_SK 135low = 0;
+    int_SK 135high = 135size - 1;
+    while_SK (135low <= 135high) {
+        int_SK 135mid = (135low + 135high) / 2;
+        if_SK (135arr[135mid] == 135key) {
+            return_SK 135mid;  // Return the index if key is found
+        } else_SK if_SK (135arr[135mid] < 135key) {
+            135low = 135mid + 1;
+        } else_SK {
+            135high = 135mid - 1;
+        }
+    }
+    return_SK -1;  // Return -1 if key is not found
+}
+
+int_SK main_SK() {
+    int_SK 135arr[] = {2, 4, 6, 8, 10};
+    int_SK 135size = 5;
+    int_SK 135key = 6;
+
+    // Linear Search
+    int_SK 135linear_result = 135linear_search(135arr, 135size, 135key);
+    print_SK("Linear Search: Key found at index ");
+    print_SK(135linear_result);
+
+    // Binary Search
+    int_SK 135binary_result = 135binary_search(135arr, 135size, 135key);
+    print_SK("Binary Search: Key found at index ");
+    print_SK(135binary_result);
+
+    return_SK 0;
+}

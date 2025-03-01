@@ -1,0 +1,18 @@
+int_SK 135a = 10;
+int_SK 135b = 20;
+int_SK 135sum = 135a + 135b;
+print_SK("Sum: ");
+print_SK(135sum);
+
+int_SK 135x = 15;
+if_SK (135x > 10) {
+    print_SK("x is greater than 10");
+} else_SK {
+    print_SK("x is less than or equal to 10");
+}
+
+int_SK 135i;
+for_SK (135i = 0; 135i < 5; 135i++) {
+    print_SK("Iteration: ");
+    print_SK(135i);
+}
