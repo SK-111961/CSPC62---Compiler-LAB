@@ -243,7 +243,6 @@ void create_dot_edge(int parent, int child) {
 
 %%
 
-
 program:
     global_declaration_list {
         $$ = create_node("PROGRAM", "program");
@@ -343,12 +342,6 @@ function_declaration:
         add_child($$, $4);
         add_child($$, $6);
     }
-    | error ')' compound_stmt {
-        yyerror("Syntax error in function declaration - recovered at closing parenthesis");
-        yyerrok;
-        $$ = create_node("ERROR", "function_declaration");
-        add_child($$, $3);
-    }
     ;
 
 parameter_list:
@@ -360,13 +353,8 @@ parameter_list:
         $$ = create_node("PARAMETER_LIST", "");
         add_child($$, $1);
     }
-    |  {
+    | /* empty */ {
         $$ = create_node("PARAMETER_LIST", "empty");
-    }
-    | error ')' {
-        yyerror("Syntax error in parameter list - recovered at closing parenthesis");
-        yyerrok;
-        $$ = create_node("ERROR", "parameter_list");
     }
     ;
 
@@ -474,15 +462,11 @@ assignment_stmt:
         add_child($$, op_node);
         add_child($$, $3);
     }
-    | error SEMICOLON {
-        yyerror("Syntax error in assignment - recovered at semicolon");
-        yyerrok;
-        $$ = create_node("ERROR", "assignment_statement");
-    }
     ;
 
+
 expression_stmt:
-    expression SEMICOLON {
+    simple_expression SEMICOLON {
         $$ = create_node("EXPRESSION_STATEMENT", "");
         add_child($$, $1);
     }
@@ -501,12 +485,6 @@ for_stmt:
         add_child($$, cond_node);
         add_child($$, iter_node);
         add_child($$, $9);
-    }
-    | FOR '(' error ')' statement {
-        yyerror("Syntax error in for loop parameters - recovered at closing parenthesis");
-        yyerrok;
-        $$ = create_node("ERROR", "for_statement");
-        add_child($$, $5);
     }
     ;
 
@@ -530,12 +508,6 @@ if_stmt:
         add_child($$, then_node);
         add_child($$, else_node);
     }
-    | IF '(' error ')' statement {
-        yyerror("Syntax error in if condition - recovered at closing parenthesis");
-        yyerrok;
-        $$ = create_node("ERROR", "if_statement");
-        add_child($$, $5);
-    }
     ;
 
 while_stmt:
@@ -555,12 +527,6 @@ while_stmt:
         add_child($$, body_node);
         add_child($$, cond_node);
     }
-    | WHILE '(' error ')' statement {
-        yyerror("Syntax error in while condition - recovered at closing parenthesis");
-        yyerrok;
-        $$ = create_node("ERROR", "while_statement");
-        add_child($$, $5);
-    }
     ;
 
 return_stmt:
@@ -571,11 +537,6 @@ return_stmt:
         $$ = create_node("RETURN_STATEMENT", "");
         add_child($$, $2);
     }
-    | RETURN error SEMICOLON {
-        yyerror("Syntax error in return statement - recovered at semicolon");
-        yyerrok;
-        $$ = create_node("ERROR", "return_statement");
-    }
     ;
 
 print_stmt:
@@ -583,23 +544,12 @@ print_stmt:
         $$ = create_node("PRINT_STATEMENT", "");
         add_child($$, $3);
     }
-    | PRINT '(' error ')' SEMICOLON {
-        yyerror("Syntax error in print statement - recovered at closing parenthesis");
-        yyerrok;
-        $$ = create_node("ERROR", "print_statement");
-    }
     ;
-
 
 call:
     IDENT '(' args ')' {
         $$ = create_node("FUNCTION_CALL", $1);
         add_child($$, $3);
-    }
-    | IDENT '(' error ')' {
-        yyerror("Syntax error in function call - recovered at closing parenthesis");
-        yyerrok;
-        $$ = create_node("ERROR", "function_call");
     }
     ;
 
@@ -635,9 +585,6 @@ expression:
         add_child($$, $3);
     }
     | simple_expression {
-        $$ = $1;
-    }
-    | call {
         $$ = $1;
     }
     ;
@@ -707,11 +654,6 @@ factor:
     }
     | STRING {
         $$ = create_node("STRING_LITERAL", $1);
-    }
-    | error ')' {
-        yyerror("Syntax error in factor - recovered at closing parenthesis");
-        yyerrok;
-        $$ = create_node("ERROR", "factor");
     }
     ;
 

@@ -1,40 +1,177 @@
-int_SK 135x123;
-double_SK 135x456 = 3.14;
-string_SK 135x789 = "Hello";
+// Test file for SK parser
+// Testing all grammar features comprehensively
 
+// Global variable declarations with different types
+int_SK 135x100;                     // Simple declaration
+double_SK 135x200 = 3.14159;        // Declaration with initialization
+string_SK 135x300 = "Hello World";  // String initialization
 
-void_SK 135x111() {
-    int_SK 135x222 = 10;
-    print_SK(135x222);
-}
-
-
-if_SK (135x456 > 2.0) {
-    print_SK("Greater");
-} else_SK {
-    print_SK("Smaller");
-}
-
-while_SK (135x123 < 10) {
-    135x123++;
-}
-
-for_SK (135x123 = 0; 135x123 < 5; 135x123++) {
-    print_SK(135x123);
-}
-
-
-{
-    int_SK 135x999 = 5;
-    if_SK (135x999 == 5) {
-        while_SK (135x999 > 0) {
-            135x999--;
-        }
+// Function declarations with parameters
+int_SK 135x400(int_SK 135x401, double_SK 135x402) {
+    // Local declarations
+    int_SK 135x403 = 42;
+    string_SK 135x404 = "Local variable";
+    
+    // Assignment statement
+    135x403 = 135x401 + 10;
+    
+    // If statement
+    if_SK (135x401 > 135x402) {
+        return_SK 135x401;
+    } else_SK {
+        return_SK 135x402;
     }
 }
 
-int_SK 135_;
-string_SK 135x000 = "";
-if_SK (135x123 == 135x456) {}
-while_SK (135x123 <= 135x456) {}
-do_SK { 135x123--; } while_SK (135x123 > 0);
+// Main function
+void_SK main_SK() {
+    // Variable declarations
+    int_SK 135x500 = 0;
+    double_SK 135x501 = 1.5;
+    string_SK 135x502 = "Testing";
+    
+    // For loop
+    for_SK (135x500 = 0; 135x500 < 10; 135x500++) {
+        print_SK(135x500);
+        
+        // Nested if statement
+        if_SK (135x500 % 2 == 0) {
+            print_SK("Even number");
+        } else_SK {
+            print_SK("Odd number");
+        }
+    }
+    
+    // While loop
+    while_SK (135x500 > 0) {
+        print_SK(135x500);
+        135x500--;
+    }
+    
+    // Do-while loop
+    do_SK {
+        135x500++;
+        print_SK(135x500);
+    } while_SK (135x500 < 5);
+    
+    // Compound statement with local scope
+    {
+        int_SK 135x600 = 100;
+        double_SK 135x601 = 200.5;
+        
+        // Arithmetic expressions
+        int_SK 135x602 = 135x600 + 135x500;
+        int_SK 135x603 = 135x600 - 135x500;
+        int_SK 135x604 = 135x600 * 2;
+        int_SK 135x605 = 135x600 / 2;
+        
+        // Comparison operators
+        if_SK (135x600 > 135x500) {
+            print_SK("Greater");
+        }
+        
+        if_SK (135x600 >= 135x500) {
+            print_SK("Greater or equal");
+        }
+        
+        if_SK (135x600 < 135x500) {
+            print_SK("Less");
+        }
+        
+        if_SK (135x600 <= 135x500) {
+            print_SK("Less or equal");
+        }
+        
+        if_SK (135x600 == 135x500) {
+            print_SK("Equal");
+        }
+        
+        if_SK (135x600 != 135x500) {
+            print_SK("Not equal");
+        }
+    }
+    
+    // Increment and decrement operators
+    135x500++;    // Postfix increment
+    135x500--;    // Postfix decrement
+    ++135x500;    // Prefix increment
+    --135x500;    // Prefix decrement
+    
+    // Logical and bitwise operators
+    int_SK 135x700 = 5;
+    int_SK 135x701 = 10;
+    
+    if_SK (135x700 > 0 && 135x701 > 0) {
+        print_SK("Both positive");
+    }
+    
+    if_SK (135x700 > 100 || 135x701 > 0) {
+        print_SK("At least one condition is true");
+    }
+    
+    if_SK (!(135x700 > 100)) {
+        print_SK("Negation works");
+    }
+    
+    int_SK 135x702 = ~135x700;  // Bitwise NOT
+    
+    // Function call
+    int_SK 135x800 = 135x400(135x700, 135x501);
+    print_SK(135x800);
+    
+    // Empty statement
+    ;
+    
+    // Empty block
+    {}
+    
+    // Nested control structures
+    for_SK (135x500 = 0; 135x500 < 3; 135x500++) {
+        for_SK (135x700 = 0; 135x700 < 2; 135x700++) {
+            if_SK (135x500 == 1) {
+                if_SK (135x700 == 1) {
+                    print_SK("Both equal to 1");
+                } else_SK {
+                    print_SK("Only outer loop is 1");
+                }
+            } else_SK {
+                print_SK("Outer loop is not 1");
+            }
+        }
+    }
+    
+    // Multiple declarations and initializations
+    int_SK 135x900 = 9, 135x901 = 10, 135x902;
+    
+    // Return statement
+    return_SK;
+}
+
+// Testing function with complex expressions
+double_SK 135x1000(double_SK 135x1001, double_SK 135x1002) {
+    return_SK (135x1001 * 135x1002) / (135x1001 + 135x1002);
+}
+
+// Testing error recovery with semicolon
+int_SK 135x1100 = 5 + * 3;
+
+// Testing empty parameter list
+void_SK 135x1200() {
+    print_SK("Empty parameter list");
+}
+
+// Testing complex expressions
+void_SK 135x1300() {
+    int_SK 135x1301 = 10;
+    int_SK 135x1302 = 20;
+    int_SK 135x1303;
+    
+    // Parenthesized expression
+    135x1303 = (135x1301 + 135x1302) * 2;
+    
+    // Nested expressions
+    135x1303 = 135x1301 + (135x1302 * (135x1301 / 5));
+    
+    // Expression with function call
+    135x1303 = 135x1301 + 135x400(135x1302, 3.14);
+}
