@@ -34,7 +34,7 @@ BRACKET   [(){}\[\]]
 
 %%
 
-{COMMENT}   ;  // Ignore comments
+{COMMENT}   { printf("COMMENT: %s\n", yytext); }  // Print comments for debugging
 
 "if_SK"     { return IF; }
 "else_SK"   { return ELSE; }
@@ -43,8 +43,10 @@ BRACKET   [(){}\[\]]
 "do_SK"     { return DO; }
 "return_SK" { return RETURN; }
 "print_SK"  { return PRINT; }
+"main_SK"   { return MAIN; }  /* Added MAIN token for main function */
 
 {TYPE}      { 
+               printf("TYPE: %s\n", yytext);
                yylval.str = copy_string(yytext);
                return TYPE; 
             }
@@ -56,24 +58,25 @@ BRACKET   [(){}\[\]]
             }
 
 {ASSIGN_OP} { 
+               printf("ASSIGN_OP: %s\n", yytext);
                yylval.str = copy_string(yytext);
                return ASSIGN_OP; 
             }
 
-";"         { return SEMICOLON; }
-","         { return COMMA; }
-"{"         { return '{'; }
-"}"         { return '}'; }
-"("         { return '('; }
-")"         { return ')'; }
-"++"        { return INC; }  /* Changed from INCR_OP to INC to match parser */
-"--"        { return DEC; }  /* Changed from DECR_OP to DEC to match parser */
-"!"         { return LOGICAL_NOT; }
-"~"         { return BITWISE_NOT; }
-"+"         { return '+'; }
-"-"         { return '-'; }
-"*"         { return '*'; }
-"/"         { return '/'; }
+";"         { printf("SEMICOLON\n"); return SEMICOLON; }
+","         { printf("COMMA\n"); return COMMA; }
+"{"         { printf("LBRACE\n"); return '{'; }
+"}"         { printf("RBRACE\n"); return '}'; }
+"("         { printf("LPAREN\n"); return '('; }
+")"         { printf("RPAREN\n"); return ')'; }
+"++"        { printf("INC\n"); return INC; }
+"--"        { printf("DEC\n"); return DEC; }
+"!"         { printf("LOGICAL_NOT\n"); return LOGICAL_NOT; }
+"~"         { printf("BITWISE_NOT\n"); return BITWISE_NOT; }
+"+"         { printf("PLUS\n"); return '+'; }
+"-"         { printf("MINUS\n"); return '-'; }
+"*"         { printf("MULTIPLY\n"); return '*'; }
+"/"         { printf("DIVIDE\n"); return '/'; }
 
 {IDENT}     { 
                printf("IDENT: %s\n", yytext); 
@@ -99,8 +102,14 @@ BRACKET   [(){}\[\]]
                return STRING;
             }
 
-[ \t\n]     ;  // Ignore whitespace
-.           { fprintf(stderr, "ERROR: Invalid token '%s' at line %d\n", yytext, yylineno); }
+[ \t\n]     { /* Ignore whitespace but print for debugging */
+               if (yytext[0] == '\n') printf("NEWLINE\n");
+            }
+
+.           { 
+               fprintf(stderr, "ERROR: Invalid token '%s' at line %d\n", yytext, yylineno);
+               return INVALID_TOKEN;  /* Added INVALID_TOKEN for better error handling */
+            }
 
 %%
 
