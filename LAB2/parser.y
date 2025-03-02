@@ -8,14 +8,30 @@ struct SymbolEntry {
     char name[50];
     char type[20];
     char scope[20];
-    char value[20];
+    char value[50];  // Increased size to handle longer values
     struct SymbolEntry *next;
 };
 
 struct SymbolEntry *symbolTable = NULL;
+char current_scope[50] = "global";  // Track current scope
 
-// Function to add an entry to the symbol table
+// Function declarations
+void add_to_symbol_table(char *name, char *type, char *scope, char *value);
+void update_symbol_table(char *name, char *type, char *scope, char *value);
+void print_symbol_table();
+extern int yylex(void);
+extern int yylineno;  // Line number from flex
+void yyerror(const char *s);
+
 void add_to_symbol_table(char *name, char *type, char *scope, char *value) {
+    struct SymbolEntry *current = symbolTable;
+    while (current != NULL) {
+        if (strcmp(current->name, name) == 0 && strcmp(current->scope, scope) == 0) {
+            return; // Identifier already exists in this scope, do not add again
+        }
+        current = current->next;
+    }
+
     struct SymbolEntry *newEntry = (struct SymbolEntry*) malloc(sizeof(struct SymbolEntry));
     strcpy(newEntry->name, name);
     strcpy(newEntry->type, type);
@@ -25,22 +41,21 @@ void add_to_symbol_table(char *name, char *type, char *scope, char *value) {
     symbolTable = newEntry;
 }
 
-// Function to update an entry in the symbol table
 void update_symbol_table(char *name, char *type, char *scope, char *value) {
     struct SymbolEntry *current = symbolTable;
     while (current != NULL) {
         if (strcmp(current->name, name) == 0) {
-            strcpy(current->type, type);
-            strcpy(current->scope, scope);
-            strcpy(current->value, value);
+            if (type != NULL && strlen(type) > 0) strcpy(current->type, type);
+            if (scope != NULL && strlen(scope) > 0) strcpy(current->scope, scope);
+            if (value != NULL && strlen(value) > 0) strcpy(current->value, value);
             return;
         }
         current = current->next;
     }
-    add_to_symbol_table(name, type, scope, value);
+    // If not found, add a new entry
+    add_to_symbol_table(name, type ? type : "unknown", scope ? scope : "global", value ? value : "");
 }
 
-// Function to print the symbol table
 void print_symbol_table() {
     struct SymbolEntry *current = symbolTable;
     printf("\n=== Symbol Table ===\n");
@@ -53,169 +68,314 @@ void print_symbol_table() {
     }
     printf("+----------------------+------------+------------+------------+\n");
 }
-
-// Function to print the parse tree
-void print_parse_tree(const char *node, int level) {
-    for (int i = 0; i < level; i++) printf("  ");
-    printf("%s\n", node);
-}
 %}
 
-// Tokens
-%token IDENT NUMBER
-%token IF_SK ELSE_SK WHILE_SK RETURN_SK PRINT_SK INT_SK FLOAT_SK VOID_SK
+/* Define value types for our grammar symbols */
+%union {
+    char *str;
+    int num;
+}
 
-// Precedence and Associativity
-%left '+' '-'
-%left '*' '/'
-%right '='
+/* Define tokens with appropriate types */
+%token <str> IDENT TYPE
+%token <str> INTEGER STRING DECIMAL
+%token <str> ASSIGN_OP COMP_OP
+%token IF ELSE FOR WHILE DO RETURN PRINT SEMICOLON COMMA
+%token INC DEC
 
-// Grammar Rules
-%%
+/* Define non-terminal types for ALL rules that produce values */
+%type <str> expression variable declaration
+%type <str> var_declaration function_declaration
+%type <str> simple_expression additive_expression term factor postfix_expr
+%type <str> parameter compound_stmt
+%type <str> statement expression_stmt if_stmt while_stmt for_stmt return_stmt print_stmt assignment_stmt
 
-Program: DeclarationList {
-    print_parse_tree("Program", 0);
-};
 
-DeclarationList: Declaration DeclarationList {
-    print_parse_tree("DeclarationList", 1);
-} | ;
-
-Declaration: VariableDecl {
-    print_parse_tree("Declaration (VariableDecl)", 2);
-} | FunctionDecl {
-    print_parse_tree("Declaration (FunctionDecl)", 2);
-};
-
-VariableDecl: Type IDENT '=' Expression ';' {
-    add_to_symbol_table($2, $1, "global", $4);
-    print_parse_tree("VariableDecl", 3);
-};
-
-FunctionDecl: Type IDENT '(' ParamList ')' Block {
-    print_parse_tree("FunctionDecl", 3);
-};
-
-ParamList: Param ParamListTail {
-    print_parse_tree("ParamList", 4);
-} | ;
-
-ParamListTail: ',' Param ParamListTail {
-    print_parse_tree("ParamListTail", 5);
-} | ;
-
-Param: Type IDENT {
-    print_parse_tree("Param", 5);
-};
-
-Block: '{' StatementList '}' {
-    print_parse_tree("Block", 3);
-};
-
-StatementList: Statement StatementList {
-    print_parse_tree("StatementList", 4);
-} | ;
-
-Statement: VariableDecl {
-    print_parse_tree("Statement (VariableDecl)", 5);
-} | Assignment {
-    print_parse_tree("Statement (Assignment)", 5);
-} | IfStmt {
-    print_parse_tree("Statement (IfStmt)", 5);
-} | WhileStmt {
-    print_parse_tree("Statement (WhileStmt)", 5);
-} | ReturnStmt {
-    print_parse_tree("Statement (ReturnStmt)", 5);
-} | PrintStmt {
-    print_parse_tree("Statement (PrintStmt)", 5);
-} | error ';' {
-    printf("Error: Skipping invalid statement\n");
-};
-
-Assignment: IDENT '=' Expression ';' {
-    update_symbol_table($1, "unknown", "global", $3);
-    print_parse_tree("Assignment", 6);
-};
-
-IfStmt: IF_SK '(' Expression ')' Block ElseStmt {
-    print_parse_tree("IfStmt", 6);
-};
-
-ElseStmt: ELSE_SK Block {
-    print_parse_tree("ElseStmt", 7);
-} | ;
-
-WhileStmt: WHILE_SK '(' Expression ')' Block {
-    print_parse_tree("WhileStmt", 6);
-};
-
-ReturnStmt: RETURN_SK Expression ';' {
-    print_parse_tree("ReturnStmt", 6);
-};
-
-PrintStmt: PRINT_SK '(' Expression ')' ';' {
-    print_parse_tree("PrintStmt", 6);
-};
-
-Expression: Term ExpressionTail {
-    print_parse_tree("Expression", 7);
-};
-
-ExpressionTail: AddOp Term ExpressionTail {
-    print_parse_tree("ExpressionTail", 8);
-} | ;
-
-Term: Factor TermTail {
-    print_parse_tree("Term", 8);
-};
-
-TermTail: MulOp Factor TermTail {
-    print_parse_tree("TermTail", 9);
-} | ;
-
-Factor: IDENT {
-    print_parse_tree("Factor (IDENT)", 9);
-} | NUMBER {
-    print_parse_tree("Factor (NUMBER)", 9);
-} | '(' Expression ')' {
-    print_parse_tree("Factor (Expression)", 9);
-} | FunctionCall {
-    print_parse_tree("Factor (FunctionCall)", 9);
-};
-
-FunctionCall: IDENT '(' ArgList ')' {
-    print_parse_tree("FunctionCall", 10);
-};
-
-ArgList: Expression ArgListTail {
-    print_parse_tree("ArgList", 11);
-} | ;
-
-ArgListTail: ',' Expression ArgListTail {
-    print_parse_tree("ArgListTail", 12);
-} | ;
-
-AddOp: '+' {
-    print_parse_tree("AddOp (+)", 10);
-} | '-' {
-    print_parse_tree("AddOp (-)", 10);
-};
-
-MulOp: '*' {
-    print_parse_tree("MulOp (*)", 10);
-} | '/' {
-    print_parse_tree("MulOp (/)", 10);
-};
-
-Type: INT_SK {
-    print_parse_tree("Type (int_SK)", 11);
-} | FLOAT_SK {
-    print_parse_tree("Type (float_SK)", 11);
-} | VOID_SK {
-    print_parse_tree("Type (void_SK)", 11);
-};
+/* Precedence rules to resolve the shift/reduce conflict */
+%nonassoc IFX
+%nonassoc ELSE
 
 %%
+
+/* Top-level rule now allows both declarations and statements */
+program:
+    global_declaration_list
+    ;
+
+global_declaration_list:
+    global_declaration_list global_declaration
+    | global_declaration
+    ;
+
+global_declaration:
+    declaration
+    | statement
+    ;
+
+declaration:
+    var_declaration
+    {
+        $$ = $1;
+    }
+    | function_declaration
+    {
+        $$ = $1;
+    }
+    ;
+
+var_declaration:
+    TYPE IDENT SEMICOLON
+    {
+        add_to_symbol_table($2, $1, current_scope, "");
+        $$ = $2;  // Return identifier name
+    }
+    | TYPE IDENT ASSIGN_OP expression SEMICOLON
+    {
+        add_to_symbol_table($2, $1, current_scope, $4);
+        $$ = $2;  // Return identifier name
+    }
+    ;
+
+/* Function declaration remains unchanged */
+function_declaration:
+    TYPE IDENT '(' parameter_list ')' compound_stmt
+    {
+        add_to_symbol_table($2, $1, "function", "");
+        $$ = $2;  // Return function name
+    }
+    ;
+
+parameter_list:
+    parameter_list COMMA parameter
+    | parameter
+    | /* empty */
+    ;
+
+parameter:
+    TYPE IDENT
+    {
+        add_to_symbol_table($2, $1, "parameter", "");
+        $$ = $2;  // Return parameter name
+    }
+    ;
+
+compound_stmt:
+    '{' 
+    {
+        // Save the current scope
+        char old_scope[50];
+        strcpy(old_scope, current_scope);
+        // Create a new block scope
+        sprintf(current_scope, "block_%d", yylineno);
+    }
+    local_declarations statement_list 
+    '}'
+    {
+        // Restore the previous scope
+        strcpy(current_scope, "global");
+        $$ = strdup("compound");  // Just a placeholder value
+    }
+    ;
+
+local_declarations:
+    var_declaration local_declarations
+    | /* empty */
+    ;
+
+statement_list:
+    statement_list statement
+    | statement
+    | error SEMICOLON  { yyerror("Syntax error ignored and recovered"); }
+    ;
+
+/* Statements: now include assignment, expression, compound, if, while, for, return, print */
+statement:
+    assignment_stmt
+    | expression_stmt
+    | compound_stmt
+    | if_stmt
+    | while_stmt
+    | for_stmt
+    | return_stmt
+    | print_stmt
+    ;
+
+assignment_stmt:
+    variable ASSIGN_OP expression SEMICOLON
+    {
+        update_symbol_table($1, "unknown", current_scope, $3);
+        $$ = strdup("assignment_stmt");
+    }
+    ;
+
+expression_stmt:
+    expression SEMICOLON  
+    ;
+
+for_stmt:
+    FOR '(' expression SEMICOLON expression SEMICOLON expression ')' statement
+    {
+        $$ = strdup("for_stmt");
+    }
+    ;
+
+if_stmt:
+    IF '(' expression ')' statement %prec IFX
+    {
+        $$ = strdup("if_stmt");
+    }
+    | IF '(' expression ')' statement ELSE statement
+    {
+        $$ = strdup("if_else_stmt");
+    }
+    ;
+
+while_stmt:
+    WHILE '(' expression ')' statement
+    {
+        $$ = strdup("while_stmt");
+    }
+    ;
+
+return_stmt:
+    RETURN SEMICOLON
+    {
+        $$ = strdup("return_void");
+    }
+    | RETURN expression SEMICOLON
+    {
+        $$ = $2;
+    }
+    ;
+
+print_stmt:
+    PRINT '(' expression ')' SEMICOLON
+    {
+        $$ = strdup("print_stmt");
+    }
+    ;
+
+/* Expression: support assignment as well as simple expressions */
+expression:
+    variable ASSIGN_OP expression
+    {
+        update_symbol_table($1, "unknown", current_scope, $3);
+        $$ = $3;
+    }
+    | simple_expression
+    {
+        $$ = $1;
+    }
+    ;
+
+/* Variable remains the same */
+variable:
+    IDENT
+    {
+        $$ = $1;
+    }
+    ;
+
+/* Allow postfix expressions in factors */
+postfix_expr:
+    variable
+    { $$ = $1; }
+    | variable INC
+    {
+         char result[100];
+         sprintf(result, "%s++", $1);
+         $$ = strdup(result);
+    }
+    | variable DEC
+    {
+         char result[100];
+         sprintf(result, "%s--", $1);
+         $$ = strdup(result);
+    }
+    ;
+
+/* Simple expression */
+simple_expression:
+    additive_expression
+    {
+        $$ = $1;
+    }
+    | additive_expression COMP_OP additive_expression
+    {
+        char result[100];
+        sprintf(result, "%s %s %s", $1, $2, $3);
+        $$ = strdup(result);
+    }
+    ;
+
+/* Standard arithmetic productions */
+additive_expression:
+    term
+    {
+        $$ = $1;
+    }
+    | additive_expression '+' term
+    {
+        char result[100];
+        sprintf(result, "%s + %s", $1, $3);
+        $$ = strdup(result);
+    }
+    | additive_expression '-' term
+    {
+        char result[100];
+        sprintf(result, "%s - %s", $1, $3);
+        $$ = strdup(result);
+    }
+    ;
+
+term:
+    factor
+    {
+        $$ = $1;
+    }
+    | term '*' factor
+    {
+        char result[100];
+        sprintf(result, "%s * %s", $1, $3);
+        $$ = strdup(result);
+    }
+    | term '/' factor
+    {
+        char result[100];
+        sprintf(result, "%s / %s", $1, $3);
+        $$ = strdup(result);
+    }
+    ;
+
+/* Factor now accepts postfix_expr */
+factor:
+    '(' expression ')'
+    {
+        $$ = $2;
+    }
+    | postfix_expr
+    {
+        $$ = $1;
+    }
+    | INTEGER
+    {
+        $$ = $1;
+    }
+    | DECIMAL
+    {
+        $$ = $1;
+    }
+    | STRING
+    {
+        $$ = $1;
+    }
+    ;
+
+%%
+
+void yyerror(const char *s) {
+    fprintf(stderr, "Error: %s at line %d\n", s, yylineno);
+}
 
 int main() {
     yyparse();
