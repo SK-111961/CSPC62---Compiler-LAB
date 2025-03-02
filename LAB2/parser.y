@@ -21,6 +21,7 @@ struct ParseTreeNode {
     char value[100];
     struct ParseTreeNode *children[10];
     int num_children;
+    int node_id;  // Store DOT file node ID for connections
 };
 
 struct ParseTreeNode* root = NULL;  // Root of the parse tree
@@ -144,21 +145,20 @@ struct ParseTreeNode* create_node(const char* type, const char* value) {
     strcpy(node->value, value ? value : "");
     node->num_children = 0;
     
-    // Create node in DOT file
-    if (dotFile) {
-        int node_id = create_dot_node(value ? value : type);
-        // Store node_id in the node structure if needed for connecting later
-    }
+    // Create node in DOT file and store the ID
+    node->node_id = create_dot_node(value && strlen(value) > 0 ? value : type);
     
     return node;
 }
 
 void add_child(struct ParseTreeNode* parent, struct ParseTreeNode* child) {
+    if (!parent || !child) return;
+    
     if (parent->num_children < 10) {
         parent->children[parent->num_children++] = child;
         
-        // Create edge in DOT file if needed
-        // Would need to store node IDs somewhere to reference them here
+        // Create edge in DOT file
+        create_dot_edge(parent->node_id, child->node_id);
     }
 }
 
@@ -183,7 +183,8 @@ void open_dot_file() {
         return;
     }
     fprintf(dotFile, "digraph ParseTree {\n");
-    fprintf(dotFile, "  node [shape=box];\n");
+    fprintf(dotFile, "  node [shape=box, fontname=\"Arial\"];\n");
+    fprintf(dotFile, "  rankdir=LR;\n");  // Left to right layout for better visualization
     node_count = 0;
 }
 
@@ -192,7 +193,6 @@ void close_dot_file() {
         fprintf(dotFile, "}\n");
         fclose(dotFile);
         printf("Parse tree written to parse_tree.dot\n");
-        printf("Generate image with: dot -Tpng parse_tree.dot -o parse_tree.png\n");
     }
 }
 
@@ -239,12 +239,15 @@ void create_dot_edge(int parent, int child) {
 %token MAIN INVALID_TOKEN  /* Added tokens */
 
 /* Define non-terminal types for ALL rules that produce values */
-%type <str> expression variable declaration
-%type <str> var_declaration function_declaration
-%type <str> simple_expression additive_expression term factor postfix_expr
-%type <str> parameter compound_stmt
-%type <str> statement expression_stmt if_stmt while_stmt for_stmt return_stmt print_stmt assignment_stmt
-%type <str> call args arg_list
+%type <node> program global_declaration_list global_declaration
+%type <node> expression variable declaration
+%type <node> var_declaration function_declaration
+%type <node> simple_expression additive_expression term factor postfix_expr
+%type <node> parameter_list parameter compound_stmt
+%type <node> statement_list statement
+%type <node> local_declarations
+%type <node> expression_stmt if_stmt while_stmt for_stmt return_stmt print_stmt assignment_stmt
+%type <node> call args arg_list
 
 /* Precedence rules to resolve the shift/reduce conflict */
 %nonassoc IFX
@@ -254,69 +257,85 @@ void create_dot_edge(int parent, int child) {
 %right UMINUS  /* Unary minus precedence */
 
 /* Enable detailed error reporting */
-%error-verbose
+%define parse.error verbose
 
 %%
 
 /* Top-level rule now allows both declarations and statements */
 program:
     global_declaration_list {
-        // Suppressed
+        $$ = create_node("PROGRAM", "program");
+        root = $$;
+        
+        // Add the global_declaration_list as a child
+        add_child($$, $1);
     }
     ;
 
 global_declaration_list:
     global_declaration_list global_declaration {
-        // Suppressed
+        $$ = $1;
+        // Add this declaration to the list
+        add_child($$, $2);
     }
     | global_declaration {
-        // Suppressed
+        $$ = create_node("DECLARATIONS", "");
+        add_child($$, $1);
     }
     ;
 
 global_declaration:
     declaration {
-        // Suppressed
+        $$ = $1;
     }
     | statement {
-        // Suppressed
+        $$ = $1;
     }
     | error SEMICOLON { 
         yyerror("Syntax error in global declaration - recovered at semicolon");
         yyerrok; /* Reset error state */
+        $$ = create_node("ERROR", "global_declaration");
     }
     | error '}' { 
         yyerror("Syntax error in global declaration - recovered at closing brace");
         yyerrok; 
+        $$ = create_node("ERROR", "global_declaration");
     }
     ;
 
 declaration:
     var_declaration { 
-        $$ = $1; 
-        // Suppressed
+        $$ = $1;
     }
     | function_declaration { 
-        $$ = $1; 
-        // Suppressed
+        $$ = $1;
     }
     ;
 
 var_declaration:
     TYPE IDENT SEMICOLON {
         add_to_symbol_table($2, $1, current_scope, "");
-        $$ = $2;  /* Return identifier name */
-        // Suppressed
+        $$ = create_node("VAR_DECLARATION", "");
+        struct ParseTreeNode* type_node = create_node("TYPE", $1);
+        struct ParseTreeNode* id_node = create_node("IDENTIFIER", $2);
+        add_child($$, type_node);
+        add_child($$, id_node);
     }
     | TYPE IDENT ASSIGN_OP expression SEMICOLON {
-        add_to_symbol_table($2, $1, current_scope, $4);
-        $$ = $2;  /* Return identifier name */
-        // Suppressed
+        add_to_symbol_table($2, $1, current_scope, "");
+        $$ = create_node("VAR_DECLARATION_INIT", "");
+        struct ParseTreeNode* type_node = create_node("TYPE", $1);
+        struct ParseTreeNode* id_node = create_node("IDENTIFIER", $2);
+        struct ParseTreeNode* assign_node = create_node("ASSIGN", $3);
+        add_child($$, type_node);
+        add_child($$, id_node);
+        add_child($$, assign_node);
+        add_child(assign_node, $4);
     }
     | error SEMICOLON {
         yyerror("Syntax error in variable declaration - recovered at semicolon");
         yyerrok;
-        $$ = strdup("error");
+        $$ = create_node("ERROR", "var_declaration");
     }
     ;
 
@@ -324,47 +343,64 @@ var_declaration:
 function_declaration:
     TYPE IDENT '(' parameter_list ')' compound_stmt {
         add_to_symbol_table($2, $1, "function", "");
-        $$ = $2;
-        // Suppressed
+        $$ = create_node("FUNCTION_DECLARATION", "");
+        struct ParseTreeNode* type_node = create_node("TYPE", $1);
+        struct ParseTreeNode* id_node = create_node("IDENTIFIER", $2);
+        add_child($$, type_node);
+        add_child($$, id_node);
+        add_child($$, $4);
+        add_child($$, $6);
     }
     | TYPE MAIN '(' parameter_list ')' compound_stmt {
         add_to_symbol_table("main", $1, "function", "");
-        $$ = strdup("main");
-        // Suppressed
+        $$ = create_node("FUNCTION_DECLARATION", "");
+        struct ParseTreeNode* type_node = create_node("TYPE", $1);
+        struct ParseTreeNode* id_node = create_node("IDENTIFIER", "main");
+        add_child($$, type_node);
+        add_child($$, id_node);
+        add_child($$, $4);
+        add_child($$, $6);
     }
     | error ')' compound_stmt {
         yyerror("Syntax error in function declaration - recovered at closing parenthesis");
         yyerrok;
-        $$ = strdup("error");
+        $$ = create_node("ERROR", "function_declaration");
+        add_child($$, $3);
     }
     | error '}' {
         yyerror("Syntax error in function body - recovered at closing brace");
         yyerrok;
-        $$ = strdup("error");
+        $$ = create_node("ERROR", "function_body");
     }
     ;
 
 parameter_list:
     parameter_list COMMA parameter {
-        // Suppressed
+        $$ = $1;
+        add_child($$, $3);
     }
     | parameter {
-        // Suppressed
+        $$ = create_node("PARAMETER_LIST", "");
+        add_child($$, $1);
     }
     | /* empty */ {
-        // Suppressed
+        $$ = create_node("PARAMETER_LIST", "empty");
     }
     | error ')' {
         yyerror("Syntax error in parameter list - recovered at closing parenthesis");
         yyerrok;
+        $$ = create_node("ERROR", "parameter_list");
     }
     ;
 
 parameter:
     TYPE IDENT {
         add_to_symbol_table($2, $1, "parameter", "");
-        $$ = $2;
-        // Suppressed
+        $$ = create_node("PARAMETER", "");
+        struct ParseTreeNode* type_node = create_node("TYPE", $1);
+        struct ParseTreeNode* id_node = create_node("IDENTIFIER", $2);
+        add_child($$, type_node);
+        add_child($$, id_node);
     }
     ;
 
@@ -373,333 +409,343 @@ compound_stmt:
         char old_scope[50];
         strcpy(old_scope, current_scope);
         sprintf(current_scope, "block_%d", yylineno);
-        // Suppressed
     }
     local_declarations statement_list 
     '}' {
-        // Suppressed
         strcpy(current_scope, "global");
-        $$ = strdup("compound");
+        $$ = create_node("COMPOUND_STATEMENT", "");
+        add_child($$, $3);
+        add_child($$, $4);
     }
     | '{' error '}' {
         yyerror("Syntax error in compound statement - recovered at closing brace");
         yyerrok;
-        $$ = strdup("error_compound");
+        $$ = create_node("ERROR", "compound_statement");
     }
     ;
 
 local_declarations:
     local_declarations var_declaration {
-        // Suppressed
+        $$ = $1;
+        add_child($$, $2);
     }
     | /* empty */ {
-        // Suppressed
+        $$ = create_node("LOCAL_DECLARATIONS", "");
     }
     ;
 
 statement_list:
     statement_list statement {
-        // Suppressed
+        $$ = $1;
+        add_child($$, $2);
     }
     | /* empty */ {
-        // Suppressed
+        $$ = create_node("STATEMENT_LIST", "");
     }
     | error SEMICOLON { 
         yyerror("Syntax error in statement - recovered at semicolon"); 
         yyerrok;
+        $$ = create_node("ERROR", "statement");
     }
     | error '}' { 
         yyerror("Syntax error in statement block - recovered at closing brace"); 
         yyerrok;
+        $$ = create_node("ERROR", "statement_block");
     }
     ;
 
 statement:
     assignment_stmt {
-        // Suppressed
+        $$ = $1;
     }
     | expression_stmt {
-        // Suppressed
+        $$ = $1;
     }
     | compound_stmt {
-        // Suppressed
+        $$ = $1;
     }
     | if_stmt {
-        // Suppressed
+        $$ = $1;
     }
     | while_stmt {
-        // Suppressed
+        $$ = $1;
     }
     | for_stmt {
-        // Suppressed
+        $$ = $1;
     }
     | return_stmt {
-        // Suppressed
+        $$ = $1;
     }
     | print_stmt {
-        // Suppressed
+        $$ = $1;
     }
     | call SEMICOLON {
-        // Suppressed
-        $$ = strdup("function_call_stmt");
+        $$ = create_node("FUNCTION_CALL_STATEMENT", "");
+        add_child($$, $1);
     }
     | SEMICOLON {
-        // Suppressed
+        $$ = create_node("EMPTY_STATEMENT", "");
     }
     ;
 
 assignment_stmt:
     variable ASSIGN_OP expression SEMICOLON {
-        update_symbol_table($1, "unknown", current_scope, $3);
-        $$ = strdup("assignment_stmt");
-        // Suppressed
+        update_symbol_table($1->value, "unknown", current_scope, "");
+        $$ = create_node("ASSIGNMENT_STATEMENT", "");
+        add_child($$, $1);
+        struct ParseTreeNode* op_node = create_node("ASSIGN_OP", $2);
+        add_child($$, op_node);
+        add_child($$, $3);
     }
     | error SEMICOLON {
         yyerror("Syntax error in assignment - recovered at semicolon");
         yyerrok;
-        $$ = strdup("error_assignment");
+        $$ = create_node("ERROR", "assignment_statement");
     }
     ;
 
 expression_stmt:
     expression SEMICOLON {
-        // Suppressed
+        $$ = create_node("EXPRESSION_STATEMENT", "");
+        add_child($$, $1);
     }
     | error SEMICOLON {
         yyerror("Syntax error in expression statement - recovered at semicolon");
         yyerrok;
+        $$ = create_node("ERROR", "expression_statement");
     }
     ;
 
 for_stmt:
     FOR '(' expression SEMICOLON expression SEMICOLON expression ')' statement {
-        $$ = strdup("for_stmt");
-        // Suppressed
+        $$ = create_node("FOR_STATEMENT", "");
+        struct ParseTreeNode* init_node = create_node("INIT_EXPR", "");
+        struct ParseTreeNode* cond_node = create_node("CONDITION", "");
+        struct ParseTreeNode* iter_node = create_node("ITERATION", "");
+        add_child(init_node, $3);
+        add_child(cond_node, $5);
+        add_child(iter_node, $7);
+        add_child($$, init_node);
+        add_child($$, cond_node);
+        add_child($$, iter_node);
+        add_child($$, $9);
     }
     | FOR '(' error ')' statement {
         yyerror("Syntax error in for loop parameters - recovered at closing parenthesis");
         yyerrok;
-        $$ = strdup("error_for");
+        $$ = create_node("ERROR", "for_statement");
+        add_child($$, $5);
     }
     ;
 
 if_stmt:
     IF '(' expression ')' statement %prec IFX {
-        $$ = strdup("if_stmt");
-        // Suppressed
+        $$ = create_node("IF_STATEMENT", "");
+        struct ParseTreeNode* cond_node = create_node("CONDITION", "");
+        add_child(cond_node, $3);
+        add_child($$, cond_node);
+        add_child($$, $5);
     }
     | IF '(' expression ')' statement ELSE statement {
-        $$ = strdup("if_else_stmt");
-        // Suppressed
+        $$ = create_node("IF_ELSE_STATEMENT", "");
+        struct ParseTreeNode* cond_node = create_node("CONDITION", "");
+        struct ParseTreeNode* then_node = create_node("THEN", "");
+        struct ParseTreeNode* else_node = create_node("ELSE", "");
+        add_child(cond_node, $3);
+        add_child(then_node, $5);
+        add_child(else_node, $7);
+        add_child($$, cond_node);
+        add_child($$, then_node);
+        add_child($$, else_node);
     }
     | IF '(' error ')' statement {
         yyerror("Syntax error in if condition - recovered at closing parenthesis");
         yyerrok;
-        $$ = strdup("error_if");
+        $$ = create_node("ERROR", "if_statement");
+        add_child($$, $5);
     }
     ;
 
 while_stmt:
     WHILE '(' expression ')' statement {
-        $$ = strdup("while_stmt");
-        // Suppressed
+        $$ = create_node("WHILE_STATEMENT", "");
+        struct ParseTreeNode* cond_node = create_node("CONDITION", "");
+        add_child(cond_node, $3);
+        add_child($$, cond_node);
+        add_child($$, $5);
     }
     | DO statement WHILE '(' expression ')' SEMICOLON {
-        $$ = strdup("do_while_stmt");
-        // Suppressed
+        $$ = create_node("DO_WHILE_STATEMENT", "");
+        struct ParseTreeNode* body_node = create_node("BODY", "");
+        struct ParseTreeNode* cond_node = create_node("CONDITION", "");
+        add_child(body_node, $2);
+        add_child(cond_node, $5);
+        add_child($$, body_node);
+        add_child($$, cond_node);
     }
     | WHILE '(' error ')' statement {
         yyerror("Syntax error in while condition - recovered at closing parenthesis");
         yyerrok;
-        $$ = strdup("error_while");
+        $$ = create_node("ERROR", "while_statement");
+        add_child($$, $5);
     }
     ;
 
 return_stmt:
     RETURN SEMICOLON {
-        $$ = strdup("return_void");
-        // Suppressed
+        $$ = create_node("RETURN_STATEMENT", "void");
     }
     | RETURN expression SEMICOLON {
-        $$ = $2;
-        // Suppressed
+        $$ = create_node("RETURN_STATEMENT", "");
+        add_child($$, $2);
     }
     | RETURN error SEMICOLON {
         yyerror("Syntax error in return statement - recovered at semicolon");
         yyerrok;
-        $$ = strdup("error_return");
+        $$ = create_node("ERROR", "return_statement");
     }
     ;
 
 print_stmt:
     PRINT '(' expression ')' SEMICOLON {
-        $$ = strdup("print_stmt");
-        // Suppressed
+        $$ = create_node("PRINT_STATEMENT", "");
+        add_child($$, $3);
     }
     | PRINT '(' error ')' SEMICOLON {
         yyerror("Syntax error in print statement - recovered at closing parenthesis");
         yyerrok;
-        $$ = strdup("error_print");
+        $$ = create_node("ERROR", "print_statement");
     }
     ;
 
 /* Rule for function calls */
 call:
     IDENT '(' args ')' {
-        char result[100];
-        sprintf(result, "call_%s", $1);
-        $$ = strdup(result);
-        // Suppressed
+        $$ = create_node("FUNCTION_CALL", $1);
+        add_child($$, $3);
     }
     | IDENT '(' error ')' {
         yyerror("Syntax error in function call - recovered at closing parenthesis");
         yyerrok;
-        char result[100];
-        sprintf(result, "error_call_%s", $1);
-        $$ = strdup(result);
+        $$ = create_node("ERROR", "function_call");
     }
     ;
 
 args:
     arg_list { 
-        $$ = $1; 
-        // Suppressed
+        $$ = create_node("ARGUMENTS", "");
+        add_child($$, $1);
     }
     | /* empty */ { 
-        $$ = strdup(""); 
-        // Suppressed
+        $$ = create_node("ARGUMENTS", "empty");
     }
     ;
 
 arg_list:
     arg_list COMMA expression {
-        char result[200];
-        sprintf(result, "%s,%s", $1, $3);
-        $$ = strdup(result);
-        // Suppressed
+        $$ = $1;
+        add_child($$, $3);
     }
     | expression { 
-        $$ = $1; 
-        // Suppressed
+        $$ = create_node("ARG_LIST", "");
+        add_child($$, $1);
     }
     ;
 
 /* Expression: support assignment as well as simple expressions */
 expression:
     variable ASSIGN_OP expression {
-        update_symbol_table($1, "unknown", current_scope, $3);
-        $$ = $3;
-        // Suppressed
+        update_symbol_table($1->value, "unknown", current_scope, "");
+        $$ = create_node("ASSIGNMENT_EXPRESSION", "");
+        add_child($$, $1);
+        struct ParseTreeNode* op_node = create_node("ASSIGN_OP", $2);
+        add_child($$, op_node);
+        add_child($$, $3);
     }
     | simple_expression {
         $$ = $1;
-        // Suppressed
     }
     | call {
         $$ = $1;
-        // Suppressed
     }
     | error ')' { 
         yyerror("Syntax error in expression - recovered at closing parenthesis");
         yyerrok; 
-        $$ = strdup("error_expression"); 
+        $$ = create_node("ERROR", "expression");
     }
     ;
 
 /* Variable remains the same */
 variable:
     IDENT {
-        $$ = $1;
-        // Suppressed
+        $$ = create_node("VARIABLE", $1);
     }
     ;
 
 /* Allow postfix expressions in factors */
 postfix_expr:
     variable { 
-        $$ = $1; 
-        // Suppressed
+        $$ = $1;
     }
     | variable INC {
-         char result[100];
-         sprintf(result, "%s++", $1);
-         $$ = strdup(result);
-         // Suppressed
+        $$ = create_node("POSTFIX_INCREMENT", "");
+        add_child($$, $1);
     }
     | variable DEC {
-         char result[100];
-         sprintf(result, "%s--", $1);
-         $$ = strdup(result);
-         // Suppressed
+        $$ = create_node("POSTFIX_DECREMENT", "");
+        add_child($$, $1);
     }
     | call { 
-        $$ = $1; 
-        // Suppressed
+        $$ = $1;
     }
     ;
 
 /* Factor now supports prefix (unary) operators as well as postfix_expr */
 factor:
-      '-' factor %prec UMINUS {
-        char result[100];
-        sprintf(result, "-%s", $2);
-        $$ = strdup(result);
-        // Suppressed
+    '-' factor %prec UMINUS {
+        $$ = create_node("UNARY_MINUS", "");
+        add_child($$, $2);
     }
     | '+' factor {
-        char result[100];
-        sprintf(result, "+%s", $2);
-        $$ = strdup(result);
-        // Suppressed
+        $$ = create_node("UNARY_PLUS", "");
+        add_child($$, $2);
     }
     | LOGICAL_NOT factor {
-        char result[100];
-        sprintf(result, "!%s", $2);
-        $$ = strdup(result);
-        // Suppressed
+        $$ = create_node("LOGICAL_NOT", "");
+        add_child($$, $2);
     }
     | BITWISE_NOT factor {
-        char result[100];
-        sprintf(result, "~%s", $2);
-        $$ = strdup(result);
-        // Suppressed
+        $$ = create_node("BITWISE_NOT", "");
+        add_child($$, $2);
     }
     | INC variable {
-        char result[100];
-        sprintf(result, "++%s", $2);
-        $$ = strdup(result);
-        // Suppressed
+        $$ = create_node("PREFIX_INCREMENT", "");
+        add_child($$, $2);
     }
     | DEC variable {
-        char result[100];
-        sprintf(result, "--%s", $2);
-        $$ = strdup(result);
-        // Suppressed
+        $$ = create_node("PREFIX_DECREMENT", "");
+        add_child($$, $2);
     }
     | '(' expression ')' {
-        $$ = $2;
-        // Suppressed
+        $$ = create_node("PARENTHESIZED_EXPR", "");
+        add_child($$, $2);
     }
     | postfix_expr {
         $$ = $1;
-        // Suppressed
     }
     | INTEGER {
-        $$ = $1;
-        // Suppressed
+        $$ = create_node("INTEGER_LITERAL", $1);
     }
     | DECIMAL {
-        $$ = $1;
-        // Suppressed
+        $$ = create_node("DECIMAL_LITERAL", $1);
     }
     | STRING {
-        $$ = $1;
-        // Suppressed
+        $$ = create_node("STRING_LITERAL", $1);
     }
     | error ')' {
         yyerror("Syntax error in factor - recovered at closing parenthesis");
         yyerrok;
-        $$ = strdup("error_factor");
+        $$ = create_node("ERROR", "factor");
     }
     ;
 
@@ -707,13 +753,11 @@ factor:
 simple_expression:
     additive_expression {
         $$ = $1;
-        // Suppressed
     }
     | additive_expression COMP_OP additive_expression {
-        char result[100];
-        sprintf(result, "%s %s %s", $1, $2, $3);
-        $$ = strdup(result);
-        // Suppressed
+        $$ = create_node("COMPARISON_EXPRESSION", $2);
+        add_child($$, $1);
+        add_child($$, $3);
     }
     ;
 
@@ -721,38 +765,32 @@ simple_expression:
 additive_expression:
     term {
         $$ = $1;
-        // Suppressed
     }
     | additive_expression '+' term {
-        char result[100];
-        sprintf(result, "%s + %s", $1, $3);
-        $$ = strdup(result);
-        // Suppressed
+        $$ = create_node("ADDITION", "+");
+        add_child($$, $1);
+        add_child($$, $3);
     }
     | additive_expression '-' term {
-        char result[100];
-        sprintf(result, "%s - %s", $1, $3);
-        $$ = strdup(result);
-        // Suppressed
+        $$ = create_node("SUBTRACTION", "-");
+        add_child($$, $1);
+        add_child($$, $3);
     }
     ;
 
 term:
     factor {
         $$ = $1;
-        // Suppressed
     }
     | term '*' factor {
-        char result[100];
-        sprintf(result, "%s * %s", $1, $3);
-        $$ = strdup(result);
-        // Suppressed
+        $$ = create_node("MULTIPLICATION", "*");
+        add_child($$, $1);
+        add_child($$, $3);
     }
     | term '/' factor {
-        char result[100];
-        sprintf(result, "%s / %s", $1, $3);
-        $$ = strdup(result);
-        // Suppressed
+        $$ = create_node("DIVISION", "/");
+        add_child($$, $1);
+        add_child($$, $3);
     }
     ;
 
@@ -762,8 +800,7 @@ void yyerror(const char *s) {
     fprintf(stderr, "Error at line %d: %s\n", yylineno, s);
 }
 
-// We need to modify the yylex function in your Flex file to call print_token
-// This is a declaration of a replacement function that your code should use
+// Complete the token tracking functions
 int custom_yylex(void) {
     int token = yylex();
     
@@ -829,6 +866,12 @@ int custom_yylex(void) {
         case BITWISE_NOT:
             print_token("BITWISE_NOT", NULL);
             break;
+        case MAIN:
+            print_token("MAIN", NULL);
+            break;
+        case INVALID_TOKEN:
+            print_token("INVALID_TOKEN", NULL);
+            break;
         case '+':
             print_token("PLUS", NULL);
             break;
@@ -842,65 +885,121 @@ int custom_yylex(void) {
             print_token("DIVIDE", NULL);
             break;
         case '(':
-            print_token("LEFT_PAREN", NULL);
+            print_token("LPAREN", NULL);
             break;
         case ')':
-            print_token("RIGHT_PAREN", NULL);
+            print_token("RPAREN", NULL);
             break;
         case '{':
-            print_token("LEFT_BRACE", NULL);
+            print_token("LBRACE", NULL);
             break;
         case '}':
-            print_token("RIGHT_BRACE", NULL);
-            break;
-        case MAIN:
-            print_token("MAIN", NULL);
-            break;
-        case INVALID_TOKEN:
-            print_token("INVALID_TOKEN", NULL);
+            print_token("RBRACE", NULL);
             break;
         default:
-            if (token > 0 && token < 128) { // ASCII character range
-                char ch_str[2] = {token, '\0'};
-                print_token("CHAR", ch_str);
-            } else {
-                print_token("UNKNOWN", NULL);
-            }
+            print_token("UNKNOWN", NULL);
     }
     
     return token;
 }
 
+// Function to free the parse tree memory
+void free_parse_tree(struct ParseTreeNode* node) {
+    if (node == NULL) return;
+    
+    // Free children first
+    for (int i = 0; i < node->num_children; i++) {
+        free_parse_tree(node->children[i]);
+    }
+    
+    // Free the node itself
+    free(node);
+}
+
+// Helper function for a text-based visualization of the parse tree
+void visualize_parse_tree(struct ParseTreeNode* node, int depth, char* prefix, int is_last) {
+    if (node == NULL) return;
+    
+    // Create a new prefix for children
+    char new_prefix[1024];
+    strcpy(new_prefix, prefix);
+    
+    // Print current node
+    printf("%s", prefix);
+    if (is_last) {
+        printf("└── ");
+        strcat(new_prefix, "    ");
+    } else {
+        printf("├── ");
+        strcat(new_prefix, "│   ");
+    }
+    
+    if (strlen(node->value) > 0) {
+        printf("%s (%s)\n", node->type, node->value);
+    } else {
+        printf("%s\n", node->type);
+    }
+    
+    // Print children
+    for (int i = 0; i < node->num_children; i++) {
+        visualize_parse_tree(node->children[i], depth + 1, new_prefix, i == node->num_children - 1);
+    }
+}
+
+// Function to free the symbol table
+void free_symbol_table() {
+    struct SymbolEntry *current = symbolTable;
+    struct SymbolEntry *next;
+    
+    while (current != NULL) {
+        next = current->next;
+        free(current);
+        current = next;
+    }
+    
+    symbolTable = NULL;
+}
+
+
 int main(int argc, char **argv) {
-    #ifdef YYDEBUG
-    yydebug = 0; // Turn off debug output
-    #endif
+    if (argc > 1) {
+        FILE *input = fopen(argv[1], "r");
+        if (!input) {
+            fprintf(stderr, "Error: Could not open input file %s\n", argv[1]);
+            return 1;
+        }
+        
+        extern FILE *yyin;
+        yyin = input;
+    }
     
     open_dot_file();
-    root = create_node("PROGRAM", "program");
     
-    printf("=== Tokens Scanned ===\n");
-    
-    // To use the custom token tracking, you need to replace yylex with custom_yylex
-    // This requires modifying the Flex-generated code or redirecting yylex calls
+    printf("\n=== Starting Parsing ===\n\n");
     
     int parse_result = yyparse();
     
-    printf("\n=== Parse Tree ===\n");
-    if (root) {
-        print_tree(root, 0);
+    if (parse_result == 0) {
+        printf("\n=== Parsing Completed Successfully ===\n\n");
+        
+        print_symbol_table();
+        
+        printf("\n=== Parse Tree (Text Representation) ===\n\n");
+        if (root) {
+            char prefix[1024] = "";
+            visualize_parse_tree(root, 0, prefix, 1);
+        } else {
+            printf("No parse tree was generated.\n");
+        }
+    } else {
+        printf("\n=== Parsing Failed ===\n\n");
     }
     
-    print_symbol_table();
-    
-    // Finalize parse tree visualization
     close_dot_file();
     
-    if (parse_result == 0) {
-        printf("\nParsing completed successfully.\n");
-    } else {
-        printf("\nParsing failed with errors.\n");
-    }
+
+    if (root) free_parse_tree(root);
+    free_symbol_table();
     
     return parse_result;
 }

@@ -1,0 +1,40 @@
+int_SK 135x123;
+double_SK 135x456 = 3.14;
+string_SK 135x789 = "Hello";
+
+
+void_SK 135x111() {
+    int_SK 135x222 = 10;
+    print_SK(135x222);
+}
+
+
+if_SK (135x456 > 2.0) {
+    print_SK("Greater");
+} else_SK {
+    print_SK("Smaller");
+}
+
+while_SK (135x123 < 10) {
+    135x123++;
+}
+
+for_SK (135x123 = 0; 135x123 < 5; 135x123++) {
+    print_SK(135x123);
+}
+
+
+{
+    int_SK 135x999 = 5;
+    if_SK (135x999 == 5) {
+        while_SK (135x999 > 0) {
+            135x999--;
+        }
+    }
+}
+
+int_SK 135_;
+string_SK 135x000 = "";
+if_SK (135x123 == 135x456) {}
+while_SK (135x123 <= 135x456) {}
+do_SK { 135x123--; } while_SK (135x123 > 0);

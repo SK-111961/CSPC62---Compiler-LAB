@@ -22,3 +22,5 @@ if [ $? -ne 0 ]; then
     echo "Error occurred while processing $FILENAME"
     exit 1
 fi
+
+dot -Tpng parse_tree.dot -o parse_tree.png
