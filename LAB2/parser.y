@@ -349,11 +349,6 @@ function_declaration:
         $$ = create_node("ERROR", "function_declaration");
         add_child($$, $3);
     }
-    | error '}' {
-        yyerror("Syntax error in function body - recovered at closing brace");
-        yyerrok;
-        $$ = create_node("ERROR", "function_body");
-    }
     ;
 
 parameter_list:
@@ -421,13 +416,8 @@ statement_list:
         $$ = $1;
         add_child($$, $2);
     }
-    |  {
+    |{
         $$ = create_node("STATEMENT_LIST", "");
-    }
-    | error SEMICOLON { 
-        yyerror("Syntax error in statement - recovered at semicolon"); 
-        yyerrok;
-        $$ = create_node("ERROR", "statement");
     }
     | error '}' { 
         yyerror("Syntax error in statement block - recovered at closing brace"); 
@@ -468,6 +458,11 @@ statement:
     | SEMICOLON {
         $$ = create_node("EMPTY_STATEMENT", "");
     }
+    | error SEMICOLON { 
+        yyerror("Syntax error in statement - recovered at semicolon"); 
+        yyerrok;
+        $$ = create_node("ERROR", "statement");
+    }
     ;
 
 assignment_stmt:
@@ -490,11 +485,6 @@ expression_stmt:
     expression SEMICOLON {
         $$ = create_node("EXPRESSION_STATEMENT", "");
         add_child($$, $1);
-    }
-    | error SEMICOLON {
-        yyerror("Syntax error in expression statement - recovered at semicolon");
-        yyerrok;
-        $$ = create_node("ERROR", "expression_statement");
     }
     ;
 
@@ -650,13 +640,7 @@ expression:
     | call {
         $$ = $1;
     }
-    | error ')' { 
-        yyerror("Syntax error in expression - recovered at closing parenthesis");
-        yyerrok; 
-        $$ = create_node("ERROR", "expression");
-    }
     ;
-
 
 variable:
     IDENT {
