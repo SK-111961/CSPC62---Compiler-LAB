@@ -6,7 +6,6 @@
 
 extern YYSTYPE yylval;
 
-// Memory management helper
 char* copy_string(char* s) {
     char* result = strdup(s);
     if (!result) {
@@ -34,7 +33,7 @@ BRACKET   [(){}\[\]]
 
 %%
 
-{COMMENT}   { printf("COMMENT: %s\n", yytext); }  // Print comments for debugging
+{COMMENT}   { printf("COMMENT: %s\n", yytext); }
 
 "if_SK"     { return IF; }
 "else_SK"   { return ELSE; }
@@ -43,7 +42,7 @@ BRACKET   [(){}\[\]]
 "do_SK"     { return DO; }
 "return_SK" { return RETURN; }
 "print_SK"  { return PRINT; }
-"main_SK"   { return MAIN; }  /* Added MAIN token for main function */
+"main_SK"   { return MAIN; }
 
 {TYPE}      { 
                printf("TYPE: %s\n", yytext);
@@ -102,15 +101,13 @@ BRACKET   [(){}\[\]]
                return STRING;
             }
 
-[ \t\n]     { /* Ignore whitespace but print for debugging */
+[ \t\n]     { 
                if (yytext[0] == '\n') printf("NEWLINE\n");
             }
 
 .           { 
                fprintf(stderr, "ERROR: Invalid token '%s' at line %d\n", yytext, yylineno);
-               return INVALID_TOKEN;  /* Added INVALID_TOKEN for better error handling */
+               return INVALID_TOKEN;  
             }
 
 %%
-
-// main() is in the parser file

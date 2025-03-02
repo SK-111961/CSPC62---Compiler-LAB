@@ -3,47 +3,41 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Symbol Table Structure
 struct SymbolEntry {
     char name[50];
     char type[20];
     char scope[50];
-    char value[50];  // Increased size to handle longer values
+    char value[50];
     struct SymbolEntry *next;
 };
 
 struct SymbolEntry *symbolTable = NULL;
-char current_scope[50] = "global";  // Track current scope
+char current_scope[50] = "global"; 
 
-// Parse Tree Structure
 struct ParseTreeNode {
     char type[50];
     char value[100];
     struct ParseTreeNode *children[10];
     int num_children;
-    int node_id;  // Store DOT file node ID for connections
+    int node_id;
 };
 
-struct ParseTreeNode* root = NULL;  // Root of the parse tree
+struct ParseTreeNode* root = NULL; 
 
-// Function declarations
 void add_to_symbol_table(char *name, char *type, char *scope, char *value);
 void update_symbol_table(char *name, char *type, char *scope, char *value);
 void print_symbol_table();
 extern int yylex(void);
-extern int yylineno;  // Line number from flex
+extern int yylineno;
 void yyerror(const char *s);
 
-// Parse tree functions
 struct ParseTreeNode* create_node(const char* type, const char* value);
 void add_child(struct ParseTreeNode* parent, struct ParseTreeNode* child);
 void print_tree(struct ParseTreeNode* node, int depth);
 
-// Token tracking
 int token_count = 0;
 void print_token(const char* token_name, const char* token_value);
 
-// DOT file functions for parse tree visualization
 FILE* dotFile = NULL;
 int node_count = 0;
 void open_dot_file();
@@ -55,8 +49,7 @@ void add_to_symbol_table(char *name, char *type, char *scope, char *value) {
     struct SymbolEntry *current = symbolTable;
     while (current != NULL) {
         if (strcmp(current->name, name) == 0 && strcmp(current->scope, scope) == 0) {
-            // Suppressed the warning output
-            return; // Identifier already exists in this scope, do not add again
+            return;
         }
         current = current->next;
     }
@@ -71,14 +64,12 @@ void add_to_symbol_table(char *name, char *type, char *scope, char *value) {
     strcpy(newEntry->value, value);
     newEntry->next = symbolTable;
     symbolTable = newEntry;
-    // Suppressed the "Added to symbol table" output
 }
 
 void update_symbol_table(char *name, char *type, char *scope, char *value) {
     struct SymbolEntry *current = symbolTable;
     int found = 0;
     
-    // First look in current scope
     while (current != NULL) {
         if (strcmp(current->name, name) == 0 && strcmp(current->scope, current_scope) == 0) {
             found = 1;
@@ -87,7 +78,6 @@ void update_symbol_table(char *name, char *type, char *scope, char *value) {
         current = current->next;
     }
     
-    // If not found in current scope, look in global scope
     if (!found) {
         current = symbolTable;
         while (current != NULL) {
@@ -103,10 +93,7 @@ void update_symbol_table(char *name, char *type, char *scope, char *value) {
         if (type != NULL && strlen(type) > 0) strcpy(current->type, type);
         if (scope != NULL && strlen(scope) > 0) strcpy(current->scope, scope);
         if (value != NULL && strlen(value) > 0) strcpy(current->value, value);
-        // Suppressed the "Updated symbol" output
     } else {
-        // If not found, add a new entry
-        // Suppressed the "Symbol not found" output
         add_to_symbol_table(name, type ? type : "unknown", scope ? scope : current_scope, value ? value : "");
     }
 }
@@ -124,7 +111,6 @@ void print_symbol_table() {
     printf("+----------------------+------------+------------+------------+\n");
 }
 
-// Token tracking function
 void print_token(const char* token_name, const char* token_value) {
     token_count++;
     if (token_value) {
@@ -134,7 +120,6 @@ void print_token(const char* token_name, const char* token_value) {
     }
 }
 
-// Parse tree functions implementation
 struct ParseTreeNode* create_node(const char* type, const char* value) {
     struct ParseTreeNode* node = (struct ParseTreeNode*)malloc(sizeof(struct ParseTreeNode));
     if (!node) {
@@ -145,7 +130,6 @@ struct ParseTreeNode* create_node(const char* type, const char* value) {
     strcpy(node->value, value ? value : "");
     node->num_children = 0;
     
-    // Create node in DOT file and store the ID
     node->node_id = create_dot_node(value && strlen(value) > 0 ? value : type);
     
     return node;
@@ -157,7 +141,6 @@ void add_child(struct ParseTreeNode* parent, struct ParseTreeNode* child) {
     if (parent->num_children < 10) {
         parent->children[parent->num_children++] = child;
         
-        // Create edge in DOT file
         create_dot_edge(parent->node_id, child->node_id);
     }
 }
@@ -175,7 +158,6 @@ void print_tree(struct ParseTreeNode* node, int depth) {
     }
 }
 
-// DOT file functions implementation
 void open_dot_file() {
     dotFile = fopen("parse_tree.dot", "w");
     if (dotFile == NULL) {
@@ -184,7 +166,7 @@ void open_dot_file() {
     }
     fprintf(dotFile, "digraph ParseTree {\n");
     fprintf(dotFile, "  node [shape=box, fontname=\"Arial\"];\n");
-    fprintf(dotFile, "  rankdir=LR;\n");  // Left to right layout for better visualization
+    fprintf(dotFile, "  rankdir=LR;\n");  
     node_count = 0;
 }
 
@@ -200,7 +182,7 @@ int create_dot_node(const char* label) {
     int id = node_count++;
     char escaped_label[200];
     
-    // Simple escaping for DOT labels
+    
     int j = 0;
     for (int i = 0; label[i] && j < 198; i++) {
         if (label[i] == '"' || label[i] == '\\') {
@@ -219,26 +201,26 @@ void create_dot_edge(int parent, int child) {
 }
 %}
 
-/* Enable parse tracing for debugging */
+
 %define parse.trace
 
-/* Define value types for our grammar symbols */
+
 %union {
     char *str;
     int num;
     struct ParseTreeNode *node;
 }
 
-/* Define tokens with appropriate types */
+
 %token <str> IDENT TYPE
 %token <str> INTEGER STRING DECIMAL
 %token <str> ASSIGN_OP COMP_OP
 %token IF ELSE FOR WHILE DO RETURN PRINT SEMICOLON COMMA
 %token INC DEC LOGICAL_NOT BITWISE_NOT
 %token '+' '-' '*' '/'
-%token MAIN INVALID_TOKEN  /* Added tokens */
+%token MAIN INVALID_TOKEN  
 
-/* Define non-terminal types for ALL rules that produce values */
+
 %type <node> program global_declaration_list global_declaration
 %type <node> expression variable declaration
 %type <node> var_declaration function_declaration
@@ -249,25 +231,25 @@ void create_dot_edge(int parent, int child) {
 %type <node> expression_stmt if_stmt while_stmt for_stmt return_stmt print_stmt assignment_stmt
 %type <node> call args arg_list
 
-/* Precedence rules to resolve the shift/reduce conflict */
+
 %nonassoc IFX
 %nonassoc ELSE
 %left '+' '-'
 %left '*' '/'
-%right UMINUS  /* Unary minus precedence */
+%right UMINUS  
 
-/* Enable detailed error reporting */
+
 %define parse.error verbose
 
 %%
 
-/* Top-level rule now allows both declarations and statements */
+
 program:
     global_declaration_list {
         $$ = create_node("PROGRAM", "program");
         root = $$;
         
-        // Add the global_declaration_list as a child
+        
         add_child($$, $1);
     }
     ;
@@ -275,7 +257,7 @@ program:
 global_declaration_list:
     global_declaration_list global_declaration {
         $$ = $1;
-        // Add this declaration to the list
+        
         add_child($$, $2);
     }
     | global_declaration {
@@ -293,7 +275,7 @@ global_declaration:
     }
     | error SEMICOLON { 
         yyerror("Syntax error in global declaration - recovered at semicolon");
-        yyerrok; /* Reset error state */
+        yyerrok; 
         $$ = create_node("ERROR", "global_declaration");
     }
     | error '}' { 
@@ -339,7 +321,7 @@ var_declaration:
     }
     ;
 
-/* Function declaration with main support */
+
 function_declaration:
     TYPE IDENT '(' parameter_list ')' compound_stmt {
         add_to_symbol_table($2, $1, "function", "");
@@ -383,7 +365,7 @@ parameter_list:
         $$ = create_node("PARAMETER_LIST", "");
         add_child($$, $1);
     }
-    | /* empty */ {
+    |  {
         $$ = create_node("PARAMETER_LIST", "empty");
     }
     | error ')' {
@@ -429,7 +411,7 @@ local_declarations:
         $$ = $1;
         add_child($$, $2);
     }
-    | /* empty */ {
+    |  {
         $$ = create_node("LOCAL_DECLARATIONS", "");
     }
     ;
@@ -439,7 +421,7 @@ statement_list:
         $$ = $1;
         add_child($$, $2);
     }
-    | /* empty */ {
+    |  {
         $$ = create_node("STATEMENT_LIST", "");
     }
     | error SEMICOLON { 
@@ -618,7 +600,7 @@ print_stmt:
     }
     ;
 
-/* Rule for function calls */
+
 call:
     IDENT '(' args ')' {
         $$ = create_node("FUNCTION_CALL", $1);
@@ -636,7 +618,7 @@ args:
         $$ = create_node("ARGUMENTS", "");
         add_child($$, $1);
     }
-    | /* empty */ { 
+    |  { 
         $$ = create_node("ARGUMENTS", "empty");
     }
     ;
@@ -652,7 +634,7 @@ arg_list:
     }
     ;
 
-/* Expression: support assignment as well as simple expressions */
+
 expression:
     variable ASSIGN_OP expression {
         update_symbol_table($1->value, "unknown", current_scope, "");
@@ -675,14 +657,14 @@ expression:
     }
     ;
 
-/* Variable remains the same */
+
 variable:
     IDENT {
         $$ = create_node("VARIABLE", $1);
     }
     ;
 
-/* Allow postfix expressions in factors */
+
 postfix_expr:
     variable { 
         $$ = $1;
@@ -700,7 +682,7 @@ postfix_expr:
     }
     ;
 
-/* Factor now supports prefix (unary) operators as well as postfix_expr */
+
 factor:
     '-' factor %prec UMINUS {
         $$ = create_node("UNARY_MINUS", "");
@@ -749,7 +731,7 @@ factor:
     }
     ;
 
-/* Simple expression: arithmetic or comparisons */
+
 simple_expression:
     additive_expression {
         $$ = $1;
@@ -761,7 +743,7 @@ simple_expression:
     }
     ;
 
-/* Standard arithmetic productions */
+
 additive_expression:
     term {
         $$ = $1;
@@ -800,11 +782,11 @@ void yyerror(const char *s) {
     fprintf(stderr, "Error at line %d: %s\n", yylineno, s);
 }
 
-// Complete the token tracking functions
+
 int custom_yylex(void) {
     int token = yylex();
     
-    // Print token information based on token type
+    
     switch(token) {
         case IDENT:
             print_token("IDENTIFIER", yylval.str);
@@ -903,28 +885,28 @@ int custom_yylex(void) {
     return token;
 }
 
-// Function to free the parse tree memory
+
 void free_parse_tree(struct ParseTreeNode* node) {
     if (node == NULL) return;
     
-    // Free children first
+    
     for (int i = 0; i < node->num_children; i++) {
         free_parse_tree(node->children[i]);
     }
     
-    // Free the node itself
+    
     free(node);
 }
 
-// Helper function for a text-based visualization of the parse tree
+
 void visualize_parse_tree(struct ParseTreeNode* node, int depth, char* prefix, int is_last) {
     if (node == NULL) return;
     
-    // Create a new prefix for children
+    
     char new_prefix[1024];
     strcpy(new_prefix, prefix);
     
-    // Print current node
+    
     printf("%s", prefix);
     if (is_last) {
         printf("└── ");
@@ -940,13 +922,13 @@ void visualize_parse_tree(struct ParseTreeNode* node, int depth, char* prefix, i
         printf("%s\n", node->type);
     }
     
-    // Print children
+    
     for (int i = 0; i < node->num_children; i++) {
         visualize_parse_tree(node->children[i], depth + 1, new_prefix, i == node->num_children - 1);
     }
 }
 
-// Function to free the symbol table
+
 void free_symbol_table() {
     struct SymbolEntry *current = symbolTable;
     struct SymbolEntry *next;
