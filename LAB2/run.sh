@@ -1,32 +1,25 @@
 #!/bin/bash
 
-yacc -vd parser.y
-if [ $? -ne 0 ]; then
-    echo "Error: Parser generation failed. Check your Yacc grammar."
+clear
+if [ -z "$1" ]; then
+    echo "Usage: $0 <filename>"
     exit 1
 fi
-echo "Parser generated successfully."
 
-flex lexer.l
+FILENAME=$1
+bison -y -vd parser.y
+flex lexer.l  
+gcc lex.yy.c y.tab.c -o compiler
+
 if [ $? -ne 0 ]; then
-    echo "Error: Lexer generation failed. Check your Lex file."
+    echo "Compilation failed!"
     exit 1
 fi
-echo "Lexer generated successfully."
 
+rm lex.yy.c y.tab.c y.tab.h
+./compiler < $FILENAME
 
-echo "Compiling the parser and lexer..."
-gcc y.tab.c lex.yy.c -o compiler
 if [ $? -ne 0 ]; then
-    echo "Error: Compilation failed. Check your parser code for errors."
+    echo "Error occurred while processing $FILENAME"
     exit 1
-fi
-echo "Compilation successful. The compiler is ready to use."
-
-if [ $# -eq 1 ]; then
-    INPUT_FILE=$1
-    echo "Running the compiler on input file: $INPUT_FILE"
-    ./compiler < $INPUT_FILE
-else
-    echo "No input file provided. You can run the compiler using: ./compiler < input_program.sk"
 fi
