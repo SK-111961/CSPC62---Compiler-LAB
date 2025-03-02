@@ -22,7 +22,7 @@ char* copy_string(char* s) {
 
 COMMENT   \/\/[^\n]*
 KEYWORD   (main_SK|const_SK|if_SK|else_SK|elseif_SK|switch_SK|case_SK|default_SK|for_SK|while_SK|do_SK|break_SK|continue_SK|goto_SK|return_SK|auto_SK|register_SK|static_SK|extern_SK|volatile_SK|struct_SK|union_SK|enum_SK|typedef_SK|sizeof_SK|print_SK)
-TYPE      (char_SK|int_SK|float_SK|double_SK|void_SK|short_SK|long_SK|signed_SK|unsigned_SK)
+TYPE      (char_SK|int_SK|float_SK|double_SK|void_SK|short_SK|long_SK|signed_SK|unsigned_SK|string_SK)
 IDENT     135[a-zA-Z_][a-zA-Z0-9_]*
 INTEGER   [0-9]+
 DECIMAL   [0-9]+\.[0-9]+
@@ -66,6 +66,10 @@ BRACKET   [(){}\[\]]
 "}"         { return '}'; }
 "("         { return '('; }
 ")"         { return ')'; }
+"++"        { return INC; }  /* Changed from INCR_OP to INC to match parser */
+"--"        { return DEC; }  /* Changed from DECR_OP to DEC to match parser */
+"!"         { return LOGICAL_NOT; }
+"~"         { return BITWISE_NOT; }
 "+"         { return '+'; }
 "-"         { return '-'; }
 "*"         { return '*'; }

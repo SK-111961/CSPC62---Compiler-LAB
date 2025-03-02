@@ -7,7 +7,7 @@
 struct SymbolEntry {
     char name[50];
     char type[20];
-    char scope[20];
+    char scope[50];
     char value[50];  // Increased size to handle longer values
     struct SymbolEntry *next;
 };
@@ -31,7 +31,6 @@ void add_to_symbol_table(char *name, char *type, char *scope, char *value) {
         }
         current = current->next;
     }
-
     struct SymbolEntry *newEntry = (struct SymbolEntry*) malloc(sizeof(struct SymbolEntry));
     strcpy(newEntry->name, name);
     strcpy(newEntry->type, type);
@@ -81,7 +80,9 @@ void print_symbol_table() {
 %token <str> INTEGER STRING DECIMAL
 %token <str> ASSIGN_OP COMP_OP
 %token IF ELSE FOR WHILE DO RETURN PRINT SEMICOLON COMMA
-%token INC DEC
+%token INC DEC LOGICAL_NOT BITWISE_NOT
+%token '+' '-' '*' '/'
+
 
 /* Define non-terminal types for ALL rules that produce values */
 %type <str> expression variable declaration
@@ -90,10 +91,12 @@ void print_symbol_table() {
 %type <str> parameter compound_stmt
 %type <str> statement expression_stmt if_stmt while_stmt for_stmt return_stmt print_stmt assignment_stmt
 
-
 /* Precedence rules to resolve the shift/reduce conflict */
 %nonassoc IFX
 %nonassoc ELSE
+%left '+' '-'
+%left '*' '/'
+%right UMINUS  /* Unary minus precedence */
 
 %%
 
@@ -113,35 +116,26 @@ global_declaration:
     ;
 
 declaration:
-    var_declaration
-    {
-        $$ = $1;
-    }
-    | function_declaration
-    {
-        $$ = $1;
-    }
+    var_declaration { $$ = $1; }
+    | function_declaration { $$ = $1; }
     ;
 
 var_declaration:
-    TYPE IDENT SEMICOLON
-    {
+    TYPE IDENT SEMICOLON {
         add_to_symbol_table($2, $1, current_scope, "");
-        $$ = $2;  // Return identifier name
+        $$ = $2;  /* Return identifier name */
     }
-    | TYPE IDENT ASSIGN_OP expression SEMICOLON
-    {
+    | TYPE IDENT ASSIGN_OP expression SEMICOLON {
         add_to_symbol_table($2, $1, current_scope, $4);
-        $$ = $2;  // Return identifier name
+        $$ = $2;  /* Return identifier name */
     }
     ;
 
 /* Function declaration remains unchanged */
 function_declaration:
-    TYPE IDENT '(' parameter_list ')' compound_stmt
-    {
+    TYPE IDENT '(' parameter_list ')' compound_stmt {
         add_to_symbol_table($2, $1, "function", "");
-        $$ = $2;  // Return function name
+        $$ = $2;
     }
     ;
 
@@ -152,43 +146,36 @@ parameter_list:
     ;
 
 parameter:
-    TYPE IDENT
-    {
+    TYPE IDENT {
         add_to_symbol_table($2, $1, "parameter", "");
-        $$ = $2;  // Return parameter name
+        $$ = $2;
     }
     ;
 
 compound_stmt:
-    '{' 
-    {
-        // Save the current scope
+    '{' {
         char old_scope[50];
         strcpy(old_scope, current_scope);
-        // Create a new block scope
         sprintf(current_scope, "block_%d", yylineno);
     }
     local_declarations statement_list 
-    '}'
-    {
-        // Restore the previous scope
+    '}' {
         strcpy(current_scope, "global");
-        $$ = strdup("compound");  // Just a placeholder value
+        $$ = strdup("compound");
     }
     ;
 
 local_declarations:
-    var_declaration local_declarations
+    local_declarations var_declaration
     | /* empty */
     ;
 
 statement_list:
     statement_list statement
-    | statement
-    | error SEMICOLON  { yyerror("Syntax error ignored and recovered"); }
+    | /* empty */
+    | error SEMICOLON { yyerror("Syntax error ignored and recovered"); }
     ;
 
-/* Statements: now include assignment, expression, compound, if, while, for, return, print */
 statement:
     assignment_stmt
     | expression_stmt
@@ -198,110 +185,147 @@ statement:
     | for_stmt
     | return_stmt
     | print_stmt
+    | SEMICOLON /* Allow empty statements */
     ;
 
 assignment_stmt:
-    variable ASSIGN_OP expression SEMICOLON
-    {
+    variable ASSIGN_OP expression SEMICOLON {
         update_symbol_table($1, "unknown", current_scope, $3);
         $$ = strdup("assignment_stmt");
     }
     ;
 
 expression_stmt:
-    expression SEMICOLON  
+    expression SEMICOLON
     ;
 
 for_stmt:
-    FOR '(' expression SEMICOLON expression SEMICOLON expression ')' statement
-    {
+    FOR '(' expression SEMICOLON expression SEMICOLON expression ')' statement {
         $$ = strdup("for_stmt");
     }
     ;
 
 if_stmt:
-    IF '(' expression ')' statement %prec IFX
-    {
+    IF '(' expression ')' statement %prec IFX {
         $$ = strdup("if_stmt");
     }
-    | IF '(' expression ')' statement ELSE statement
-    {
+    | IF '(' expression ')' statement ELSE statement {
         $$ = strdup("if_else_stmt");
     }
     ;
 
 while_stmt:
-    WHILE '(' expression ')' statement
-    {
+    WHILE '(' expression ')' statement {
         $$ = strdup("while_stmt");
+    }
+    | DO statement WHILE '(' expression ')' SEMICOLON {
+        $$ = strdup("do_while_stmt");
     }
     ;
 
 return_stmt:
-    RETURN SEMICOLON
-    {
+    RETURN SEMICOLON {
         $$ = strdup("return_void");
     }
-    | RETURN expression SEMICOLON
-    {
+    | RETURN expression SEMICOLON {
         $$ = $2;
     }
     ;
 
 print_stmt:
-    PRINT '(' expression ')' SEMICOLON
-    {
+    PRINT '(' expression ')' SEMICOLON {
         $$ = strdup("print_stmt");
     }
     ;
 
 /* Expression: support assignment as well as simple expressions */
 expression:
-    variable ASSIGN_OP expression
-    {
+    variable ASSIGN_OP expression {
         update_symbol_table($1, "unknown", current_scope, $3);
         $$ = $3;
     }
-    | simple_expression
-    {
+    | simple_expression {
         $$ = $1;
     }
     ;
 
 /* Variable remains the same */
 variable:
-    IDENT
-    {
+    IDENT {
         $$ = $1;
     }
     ;
 
 /* Allow postfix expressions in factors */
 postfix_expr:
-    variable
-    { $$ = $1; }
-    | variable INC
-    {
+    variable { $$ = $1; }
+    | variable INC {
          char result[100];
          sprintf(result, "%s++", $1);
          $$ = strdup(result);
     }
-    | variable DEC
-    {
+    | variable DEC {
          char result[100];
          sprintf(result, "%s--", $1);
          $$ = strdup(result);
     }
     ;
 
-/* Simple expression */
-simple_expression:
-    additive_expression
-    {
+/* Factor now supports prefix (unary) operators as well as postfix_expr */
+factor:
+      '-' factor %prec UMINUS {
+        char result[100];
+        sprintf(result, "-%s", $2);
+        $$ = strdup(result);
+    }
+    | '+' factor {
+        char result[100];
+        sprintf(result, "+%s", $2);
+        $$ = strdup(result);
+    }
+    | LOGICAL_NOT factor {
+        char result[100];
+        sprintf(result, "!%s", $2);
+        $$ = strdup(result);
+    }
+    | BITWISE_NOT factor {
+        char result[100];
+        sprintf(result, "~%s", $2);
+        $$ = strdup(result);
+    }
+    | INC variable {
+        char result[100];
+        sprintf(result, "++%s", $2);
+        $$ = strdup(result);
+    }
+    | DEC variable {
+        char result[100];
+        sprintf(result, "--%s", $2);
+        $$ = strdup(result);
+    }
+    | '(' expression ')' {
+        $$ = $2;
+    }
+    | postfix_expr {
         $$ = $1;
     }
-    | additive_expression COMP_OP additive_expression
-    {
+    | INTEGER {
+        $$ = $1;
+    }
+    | DECIMAL {
+        $$ = $1;
+    }
+    | STRING {
+        $$ = $1;
+    }
+    ;
+
+/* Simple expression: arithmetic or comparisons */
+simple_expression:
+    additive_expression {
+        $$ = $1;
+    }
+    | additive_expression COMP_OP additive_expression {
         char result[100];
         sprintf(result, "%s %s %s", $1, $2, $3);
         $$ = strdup(result);
@@ -310,18 +334,15 @@ simple_expression:
 
 /* Standard arithmetic productions */
 additive_expression:
-    term
-    {
+    term {
         $$ = $1;
     }
-    | additive_expression '+' term
-    {
+    | additive_expression '+' term {
         char result[100];
         sprintf(result, "%s + %s", $1, $3);
         $$ = strdup(result);
     }
-    | additive_expression '-' term
-    {
+    | additive_expression '-' term {
         char result[100];
         sprintf(result, "%s - %s", $1, $3);
         $$ = strdup(result);
@@ -329,45 +350,18 @@ additive_expression:
     ;
 
 term:
-    factor
-    {
+    factor {
         $$ = $1;
     }
-    | term '*' factor
-    {
+    | term '*' factor {
         char result[100];
         sprintf(result, "%s * %s", $1, $3);
         $$ = strdup(result);
     }
-    | term '/' factor
-    {
+    | term '/' factor {
         char result[100];
         sprintf(result, "%s / %s", $1, $3);
         $$ = strdup(result);
-    }
-    ;
-
-/* Factor now accepts postfix_expr */
-factor:
-    '(' expression ')'
-    {
-        $$ = $2;
-    }
-    | postfix_expr
-    {
-        $$ = $1;
-    }
-    | INTEGER
-    {
-        $$ = $1;
-    }
-    | DECIMAL
-    {
-        $$ = $1;
-    }
-    | STRING
-    {
-        $$ = $1;
     }
     ;
 
