@@ -1,6 +1,5 @@
-int_SK 135result = 100;
-float_SK 135pi = 3.14;
-
-@invalid_token  // Invalid token
-135invalid_identifier  // Invalid identifier (doesn't start with 135)
-"unterminated_string  // Unterminated string
+int_SK 135x;        
+135x = 10;         
+{               
+    float_SK 135y; 
+}               
