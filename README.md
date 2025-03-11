@@ -52,7 +52,6 @@ This project implements the front-end components of a compiler:
 ```bash
 # Clone the repository
 git clone https://github.com/SK-111961/CSPC62---Compiler-LAB
-cd compiler-project
 
 # Navigate Lab
 cd CSPC62---Compiler-LAB

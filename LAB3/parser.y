@@ -930,7 +930,6 @@ postfix_expr:
             print_semantic_error("Increment requires numeric operand", yylineno);
         }
         
-        
         if (!$1->is_lvalue) {
             print_semantic_error("Increment requires an lvalue", yylineno);
         }
@@ -944,7 +943,6 @@ postfix_expr:
         if (!is_numeric_type($1->data_type)) {
             print_semantic_error("Decrement requires numeric operand", yylineno);
         }
-        
         
         if (!$1->is_lvalue) {
             print_semantic_error("Decrement requires an lvalue", yylineno);
@@ -996,8 +994,6 @@ void print_tree(struct ParseTreeNode* node, int depth, char* prefix) {
             
             char new_prefix[1024];
             strcpy(new_prefix, prefix);
-            
-            
             
             if (i == node->num_children - 1) {
                 strcat(new_prefix, "    ");  
