@@ -969,61 +969,46 @@ void add_child(struct ParseTreeNode* parent, struct ParseTreeNode* child) {
 void print_tree(struct ParseTreeNode* node, int depth, char* prefix) {
     if (!node) return;
     
+    
     printf("%s", prefix);
     
     
-    int is_last = 1; 
-    
-    
     printf("%s", node->type);
+    
+    
     if (strlen(node->value) > 0) {
-        printf(": %s", node->value);
+        if (strcmp(node->type, "COMPARISON") == 0) {
+            printf(" (%s)", node->value);
+        } else if (strcmp(node->type, "VARIABLE") == 0 || 
+                  strcmp(node->type, "STRING") == 0 || 
+                  strcmp(node->type, "INTEGER") == 0) {
+            printf(" (%s)", node->value);
+        } else {
+            printf(": %s", node->value);
+        }
     }
-    if (strlen(node->data_type) > 0) {
-        printf(" [type: %s]", node->data_type);
-    }
-    if (node->is_lvalue) {
-        printf(" [lvalue]");
-    }
+    
     printf("\n");
-    
-    
-    char new_prefix[1024];
-    strcpy(new_prefix, prefix);
     
     
     if (node->num_children > 0) {
         for (int i = 0; i < node->num_children; i++) {
             
-            is_last = (i == node->num_children - 1);
+            char new_prefix[1024];
+            strcpy(new_prefix, prefix);
             
             
-            char child_prefix[1024];
-            strcpy(child_prefix, new_prefix);
             
-            if (is_last) {
-                strcat(child_prefix, "└── ");
-                
-                
-                char next_prefix[1024];
-                strcpy(next_prefix, new_prefix);
-                strcat(next_prefix, "    ");  
-                
-                print_tree(node->children[i], depth + 1, next_prefix);
+            if (i == node->num_children - 1) {
+                strcat(new_prefix, "    ");  
             } else {
-                strcat(child_prefix, "├── ");  
-                
-                
-                char next_prefix[1024];
-                strcpy(next_prefix, new_prefix);
-                strcat(next_prefix, "│   ");  
-                
-                print_tree(node->children[i], depth + 1, next_prefix);
+                strcat(new_prefix, "│   ");  
             }
+            
+            print_tree(node->children[i], depth + 1, new_prefix);
         }
     }
 }
-
 
 void open_dot_file() {
     dotFile = fopen("parse_tree.dot", "w");
@@ -1046,7 +1031,18 @@ void close_dot_file() {
 
 int create_dot_node(const char* label) {
     if (dotFile) {
-        fprintf(dotFile, "  node%d [label=\"%s\"];\n", node_count, label);
+        
+        char escaped_label[200] = "";
+        int j = 0;
+        for (int i = 0; i < strlen(label) && j < 198; i++) {
+            if (label[i] == '"' || label[i] == '\\') {
+                escaped_label[j++] = '\\';
+            }
+            escaped_label[j++] = label[i];
+        }
+        escaped_label[j] = '\0';
+        
+        fprintf(dotFile, "  node%d [label=\"%s\"];\n", node_count, escaped_label);
     }
     return node_count++;
 }
@@ -1064,27 +1060,21 @@ void yyerror(const char *s) {
 
 
 int main(int argc, char **argv) {
-    
     open_dot_file();
-    
     
     if (yyparse() == 0) {
         printf("\nParsing completed successfully!\n");
-        
         
         printf("\n=== Parse Tree ===\n");
         if (root) {
             print_tree(root, 0, "");
         }
         
-        
         print_symbol_table();
     } else {
         printf("\nParsing failed!\n");
     }
-    
-    
+
     close_dot_file();
-    
     return 0;
 }
