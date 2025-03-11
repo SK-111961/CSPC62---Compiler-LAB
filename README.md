@@ -51,13 +51,16 @@ This project implements the front-end components of a compiler:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/compiler-project.git
+git clone https://github.com/SK-111961/CSPC62---Compiler-LAB
 cd compiler-project
+
+# Navigate Lab
+cd CSPC62---Compiler-LAB
+cd LAB#
 
 # Build the compiler
 ./run.sh <argument_file>
 ```
-
 
 ## Implementation Details
 
@@ -85,9 +88,6 @@ The parser uses recursive descent parsing to build an abstract syntax tree from 
 - Code optimization
 - Target code generation for a specific architecture
 
-## Contributing
-
-Feel free to contribute to this project by opening issues or submitting pull requests.
 
 ## License
 
