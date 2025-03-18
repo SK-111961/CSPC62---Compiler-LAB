@@ -13,7 +13,11 @@ struct SymbolEntry {
     int array_sizes[3];     
     char value[50];         
     int is_initialized;     
+    int param_count;
+    char param_types[10][20];
+    int overload_id; 
     struct SymbolEntry *next;
+
 };
 
 struct SymbolEntry *symbolTable = NULL;
@@ -29,6 +33,10 @@ struct ParseTreeNode {
     struct ParseTreeNode *children[10];
     int num_children;
     int node_id;
+    int param_count;
+    char param_types[10][20];
+    int arg_count;
+    char arg_types[10][20];
 };
 
 struct ParseTreeNode* root = NULL;
@@ -40,6 +48,7 @@ void update_symbol_table(char *name, char *type, char *scope, char *value);
 void print_symbol_table();
 void print_semantic_error(const char *error_msg, int line_no);
 char* check_type_compatibility(char *type1, char *type2, char *operation);
+int is_compatible_type(char *expected, char *actual);
 int is_numeric_type(char *type);
 extern int yylex(void);
 extern int yylineno;
@@ -131,17 +140,24 @@ void update_symbol_table(char *name, char *type, char *scope, char *value) {
 void print_symbol_table() {
     struct SymbolEntry *current = symbolTable;
     printf("\n=== Symbol Table ===\n");
-    printf("+----------------------+------------+------------+------------+------------+-------------+\n");
-    printf("| %-20s | %-10s | %-10s | %-10s | %-10s | %-11s |\n", 
-           "Name", "Type", "Scope", "Kind", "Value", "Initialized");
-    printf("+----------------------+------------+------------+------------+------------+-------------+\n");
+    printf("+------+----------------------+------------+------------+------------+------------+-------------+\n");
+    printf("| %-4s | %-20s | %-10s | %-10s | %-10s | %-10s | %-11s |\n", 
+           "ID", "Name", "Type", "Scope", "Kind", "Params", "Initialized");
+    printf("+------+----------------------+------------+------------+------------+------------+-------------+\n");
     while (current != NULL) {
-        printf("| %-20s | %-10s | %-10s | %-10s | %-10s | %-11s |\n", 
-               current->name, current->type, current->scope, current->kind, 
-               current->value, current->is_initialized ? "Yes" : "No");
+        char params[100] = "";
+        for(int i=0; i<current->param_count; i++) {
+            strcat(params, current->param_types[i]);
+            if(i < current->param_count-1) strcat(params, ",");
+        }
+        
+        printf("| %-4d | %-20s | %-10s | %-10s | %-10s | %-10s | %-11s |\n", 
+               current->overload_id, current->name, current->type, 
+               current->scope, current->kind, params, 
+               current->is_initialized ? "Yes" : "No");
         current = current->next;
     }
-    printf("+----------------------+------------+------------+------------+------------+-------------+\n");
+    printf("+------+----------------------+------------+------------+------------+------------+-------------+\n");
 }
 
 
@@ -181,6 +197,12 @@ char* check_type_compatibility(char *type1, char *type2, char *operation) {
     }
     
     return "incompatible";
+}
+
+int is_compatible_type(char *expected, char *actual) {
+    if(strcmp(expected, actual) == 0) return 1;
+    if(is_numeric_type(expected) && is_numeric_type(actual)) return 1;
+    return 0;
 }
 
 int is_numeric_type(char *type) {
@@ -358,12 +380,22 @@ var_declaration:
 
 function_declaration:
     TYPE IDENT '(' parameter_list ')' {
+        struct SymbolEntry *func = lookup_symbol($2, "global");
+        int overload_id = 0;
         
-        strcpy(current_function_return_type, $1);
-        
+        while(func && strcmp(func->name, $2) == 0) {
+            overload_id++;
+            func = func->next;
+        }
+    
         add_to_symbol_table($2, $1, "global", "function", "");
+        struct SymbolEntry *new_func = lookup_symbol($2, "global");
+        new_func->overload_id = overload_id;
         
-        sprintf(current_scope, "function_%s", $2);
+        new_func->param_count = $4->param_count;
+        for(int i=0; i<$4->param_count; i++) {
+            strcpy(new_func->param_types[i], $4->param_types[i]);
+        }
     } compound_stmt {
         $$ = create_node("FUNCTION_DECLARATION", "");
         struct ParseTreeNode* type_node = create_node("TYPE", $1);
@@ -399,31 +431,38 @@ function_declaration:
     }
     ;
 
-parameter_list:
-    parameter_list COMMA parameter {
-        $$ = $1;
-        add_child($$, $3);
-    }
-    | parameter {
-        $$ = create_node("PARAMETER_LIST", "");
-        add_child($$, $1);
-    }
-    |  {
-        $$ = create_node("PARAMETER_LIST", "empty");
-    }
-    ;
-
 parameter:
     TYPE IDENT {
+        // Add to symbol table
         add_to_symbol_table($2, $1, current_scope, "parameter", "");
-        struct SymbolEntry* entry = lookup_symbol($2, current_scope);
-        if (entry) entry->is_initialized = 1; 
         
+        // Create node with type information
         $$ = create_node("PARAMETER", "");
+        strcpy($$->data_type, $1);  // Store type in data_type field
+        
         struct ParseTreeNode* type_node = create_node("TYPE", $1);
         struct ParseTreeNode* id_node = create_node("IDENTIFIER", $2);
         add_child($$, type_node);
         add_child($$, id_node);
+    }
+    ;
+
+parameter_list:
+    parameter_list COMMA parameter {
+        $$ = $1;
+        $$->param_count++;
+        strcpy($$->param_types[$$->param_count-1], $3->data_type);
+        add_child($$, $3);
+    }
+    | parameter {
+        $$ = create_node("PARAMETER_LIST", "");
+        $$->param_count = 1;
+        strcpy($$->param_types[0], $1->data_type);
+        add_child($$, $1);
+    }
+    | {
+        $$ = create_node("PARAMETER_LIST", "empty");
+        $$->param_count = 0;
     }
     ;
 
@@ -677,21 +716,41 @@ print_stmt:
 
 call:
     IDENT '(' args ')' {
+        struct SymbolEntry *candidate = NULL;
+        int best_match = -1;
         
-        struct SymbolEntry* func_entry = lookup_symbol($1, "global");
-        if (!func_entry || strcmp(func_entry->kind, "function") != 0) {
-            print_semantic_error("Call to undeclared function", yylineno);
-            strcpy($$->data_type, "unknown");
-        } else {
-            
-            strcpy($$->data_type, func_entry->type);
+        struct SymbolEntry *current = symbolTable;
+        while(current) {
+            if(strcmp(current->name, $1) == 0 && 
+               current->param_count == $3->arg_count) {
+                
+                int match_score = 0;
+                for(int i=0; i<current->param_count; i++) {
+                    if(strcmp(current->param_types[i], $3->arg_types[i]) == 0) {
+                        match_score += 2;
+                    } else if(check_type_compatibility(current->param_types[i], $3->arg_types[i], "call")) {
+                        match_score += 1;
+                    }
+                }
+                
+                if(match_score > best_match) {
+                    best_match = match_score;
+                    candidate = current;
+                }
+            }
+            current = current->next;
         }
         
-        $$ = create_node("FUNCTION_CALL", $1);
-        add_child($$, $3);
+        if(!candidate) {
+            print_semantic_error("No matching overload for function", yylineno);
+            $$ = create_node("FUNCTION_CALL", $1);
+            strcpy($$->data_type, "unknown"); // Default type to prevent crash
+        } else {
+            $$ = create_node("FUNCTION_CALL", $1);
+            strcpy($$->data_type, candidate->type);
+        }
     }
     ;
-
 args:
     arg_list { 
         $$ = create_node("ARGUMENTS", "");
@@ -705,10 +764,14 @@ args:
 arg_list:
     arg_list COMMA expression {
         $$ = $1;
+        $$->arg_count++;
+        strcpy($$->arg_types[$$->arg_count-1], $3->data_type);
         add_child($$, $3);
     }
-    | expression { 
+    | expression {
         $$ = create_node("ARG_LIST", "");
+        $$->arg_count = 1;
+        strcpy($$->arg_types[0], $1->data_type);
         add_child($$, $1);
     }
     ;

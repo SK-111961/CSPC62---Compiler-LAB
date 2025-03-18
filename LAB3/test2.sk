@@ -1,2 +1,12 @@
-int_SK 135arr[10];
-135arr[5] = 20;
+int_SK 135sum(int_SK 135a, int_SK 135b) {
+    return_SK 135a + 135b;
+}
+
+double_SK 135sum(double_SK 135a, double_SK 135b) {
+    return_SK 135a + 135b;
+}
+
+int_SK main_SK() {
+    int_SK 135x = 135sum(5, 10);
+    double_SK 135y = 135sum(3.14, 2.71);
+} 
