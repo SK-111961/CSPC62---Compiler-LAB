@@ -1,0 +1,28 @@
+function controlFlow() {
+    int x = 10;
+    
+    // If-else
+    if (x > 5) {
+        x = x - 5;
+    } else {
+        x = x + 5;
+    }
+    
+    while (x < 100) {
+        x = x * 2;
+        if (x > 50) {
+            break;
+        }
+    }
+    
+    switch (x) {
+        case 50: 
+            x = x + 10;
+            break;
+        case 100:
+            x = x - 10;
+            break;
+        default:
+            x = 0;
+    }
+}

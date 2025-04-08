@@ -1,0 +1,15 @@
+function int factorial(int n) {
+    if (n <= 1) {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+
+function void testFunctions() {
+    int x = 5;
+    int result = factorial(x);
+    
+    printResult(result);
+
+    float y = sqrt(factorial(3) + 2.5);
+}

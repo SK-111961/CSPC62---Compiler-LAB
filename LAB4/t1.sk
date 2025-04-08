@@ -1,0 +1,15 @@
+function typeTests() {
+    int x = 10;
+    float y = 3.14;
+    bool flag = true;
+    
+    float z = x + y;  // int + float → float
+    int a = y;        // Should warn about float→int
+    
+    int[5] arr;
+    arr[0] = x;
+    float[10] farr = {1.1, 2.2, x};  // Mixed init
+    
+    bool b = x + y;   // Should error
+    arr[1] = y;       // Should error (float→int)
+}
